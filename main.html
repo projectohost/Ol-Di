@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сире м'ясо</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+    background:linear-gradient(135deg,#0f172a,#111827,#1e293b);
+    color:white;
+}
+
+header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:20px 40px;
+    background:rgba(255,255,255,.05);
+    backdrop-filter:blur(10px);
+}
+
+.logo{
+    font-size:32px;
+    font-weight:bold;
+    color:#22c55e;
+}
+
+.player{
+    width:300px;
+}
+
+.money{
+    text-align:right;
+    font-size:22px;
+    color:gold;
+    margin-bottom:10px;
+}
+
+.level{
+    text-align:right;
+    margin-bottom:6px;
+}
+
+.progress{
+    width:100%;
+    height:16px;
+    background:#374151;
+    border-radius:20px;
+    overflow:hidden;
+}
+
+.progress span{
+    display:block;
+    width:65%;
+    height:100%;
+    background:linear-gradient(90deg,#22c55e,#16a34a);
+}
+
+.container{
+    max-width:1100px;
+    margin:40px auto;
+    padding:20px;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:30px;
+}
+
+.match{
+    background:#1f2937;
+    border-radius:18px;
+    padding:25px;
+    margin-bottom:25px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    transition:.3s;
+}
+
+.match:hover{
+    transform:scale(1.02);
+    box-shadow:0 0 25px rgba(34,197,94,.4);
+}
+
+.teams{
+    font-size:24px;
+    font-weight:bold;
+}
+
+.time{
+    color:#9ca3af;
+    margin-top:8px;
+}
+
+.odds{
+    display:flex;
+    gap:15px;
+}
+
+.bet{
+    background:#22c55e;
+    color:white;
+    border:none;
+    border-radius:12px;
+    padding:15px 22px;
+    font-size:18px;
+    cursor:pointer;
+    transition:.3s;
+}
+
+.bet:hover{
+    background:#16a34a;
+    transform:translateY(-3px);
+}
+
+footer{
+    text-align:center;
+    padding:30px;
+    color:#9ca3af;
+}
+</style>
+
+</head>
+<body>
+
+<header>
+
+<div class="logo">
+⚽ Football Bet
+</div>
+
+<div class="player">
+
+<div class="money">
+💰 12 500 ₴
+</div>
+
+<div class="level">
+⭐ Рівень 12
+</div>
+
+<div class="progress">
+<span></span>
+</div>
+
+</div>
+
+</header>
+
+<div class="container">
+
+<h1>Ставки на футбол</h1>
+
+<div class="match">
+
+<div>
+<div class="teams">
+🇪🇸 Real Madrid vs Barcelona
+</div>
+
+<div class="time">
+20:45
+</div>
+</div>
+
+<div class="odds">
+<button class="bet">1 — 2.10</button>
+<button class="bet">X — 3.40</button>
+<button class="bet">2 — 2.80</button>
+</div>
+
+</div>
+
+<div class="match">
+
+<div>
+<div class="teams">
+🏴 Liverpool vs Manchester City
+</div>
+
+<div class="time">
+22:00
+</div>
+</div>
+
+<div class="odds">
+<button class="bet">1 — 2.35</button>
+<button class="bet">X — 3.20</button>
+<button class="bet">2 — 2.55</button>
+</div>
+
+</div>
+
+<div class="match">
+
+<div>
+<div class="teams">
+🇩🇪 Bayern Munich vs Dortmund
+</div>
+
+<div class="time">
+18:30
+</div>
+</div>
+
+<div class="odds">
+<button class="bet">1 — 1.90</button>
+<button class="bet">X — 3.80</button>
+<button class="bet">2 — 3.90</button>
+</div>
+
+</div>
+
+<div class="match">
+
+<div>
+<div class="teams">
+🇮🇹 Juventus vs Milan
+</div>
+
+<div class="time">
+21:00
+</div>
+</div>
+
+<div class="odds">
+<button class="bet">1 — 2.55</button>
+<button class="bet">X — 3.00</button>
+<button class="bet">2 — 2.60</button>
+</div>
+
+</div>
+
+</div>
+
+<footer>
+Football Bet © 2026
+</footer>
+
+</body>
+</html>
