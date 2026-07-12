@@ -430,7 +430,7 @@ function init(){
     const offlineSeconds=Math.floor((now-lastSeen)/1000);
 
     if(offlineSeconds>0){
-        const offlineGain=offlineSeconds*passiveRate;
+        const offlineGain=offlineSeconds;
         money+=offlineGain;
         showMessage("💰 Ви заробили "+offlineGain+" $ офлайн за "+offlineSeconds+" с");
     }
