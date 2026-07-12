@@ -1,88 +1,243 @@
-document.querySelectorAll(".bet").forEach(button => {
+const moneyEl = document.getElementById("money");
+const levelEl = document.getElementById("level");
+const xpBar = document.getElementById("xpBar");
 
-    button.onclick = function () {
+let money = Number(localStorage.getItem("money")) || 100;
+let level = Number(localStorage.getItem("level")) || 0;
+let xp = Number(localStorage.getItem("xp")) || 0;
+let needXP = Number(localStorage.getItem("needXP")) || 100;
 
-        let bet = Number(prompt("Введіть суму ставки"));
+let currentButton = null;
+let currentCoef = 0;
+let currentBet = 0;
+let waiting = false;
 
-        if (isNaN(bet) || bet <= 0) return;
+function saveGame(){
 
-        if (bet > money) {
-            showMessage("❌ Недостатньо грошей!", true);
+    localStorage.setItem("money",money);
+    localStorage.setItem("level",level);
+    localStorage.setItem("xp",xp);
+    localStorage.setItem("needXP",needXP);
+
+}
+
+function update(){
+
+    moneyEl.innerHTML="💰 "+money+" ₴";
+
+    levelEl.innerHTML="⭐ Рівень "+level;
+
+    let percent=(xp/needXP)*100;
+
+    if(percent>100)
+        percent=100;
+
+    xpBar.style.width=percent+"%";
+
+    saveGame();
+
+}
+
+function showMessage(text,lose=false){
+
+    let popup=document.querySelector(".popup");
+
+    if(!popup){
+
+        popup=document.createElement("div");
+
+        popup.className="popup";
+
+        document.body.appendChild(popup);
+
+    }
+
+    popup.innerHTML=text;
+
+    popup.classList.remove("lose");
+
+    if(lose)
+        popup.classList.add("lose");
+
+    popup.style.display="block";
+
+    clearTimeout(popup.timer);
+
+    popup.timer=setTimeout(()=>{
+
+        popup.style.display="none";
+
+    },3000);
+
+}
+
+function addXP(value){
+
+    xp+=value;
+
+    while(xp>=needXP){
+
+        xp-=needXP;
+
+        level++;
+
+        needXP+=50;
+
+        showMessage("🏆 Новий рівень "+level);
+
+    }
+
+}
+
+function resetPlayer(){
+
+    money=100;
+    level=0;
+    xp=0;
+    needXP=100;
+
+    update();
+
+}
+
+function disableButtons(){
+
+    document.querySelectorAll(".bet").forEach(btn=>{
+
+        btn.disabled=true;
+
+    });
+
+}
+
+function enableButtons(){
+
+    document.querySelectorAll(".bet").forEach(btn=>{
+
+        btn.disabled=false;
+
+    });
+
+}
+
+function getCoef(button){
+
+    return Number(
+
+        button.innerText
+            .replace(",",".")
+            .split("—")[1]
+            .replace("x","")
+            .trim()
+
+    );
+
+}
+
+function getChance(coef){
+
+    let chance=1/coef;
+
+    if(chance>0.8)
+        chance=0.8;
+
+    if(chance<0.15)
+        chance=0.15;
+
+    return chance;
+
+}
+
+update();
+document.querySelectorAll(".bet").forEach(button=>{
+
+    button.onclick=function(){
+
+        if(waiting)
             return;
+
+        let bet=Number(prompt("Введіть суму ставки"));
+
+        if(isNaN(bet)||bet<=0)
+            return;
+
+        if(bet>money){
+
+            showMessage("❌ Недостатньо грошей!",true);
+
+            return;
+
         }
 
-        // Блокуємо всі кнопки
-        document.querySelectorAll(".bet").forEach(btn => {
-            btn.disabled = true;
-        });
+        currentButton=this;
+        currentBet=bet;
+        currentCoef=getCoef(this);
 
-        showMessage("⏳ Зачекайте 10 секунд...");
+        waiting=true;
 
-        let coef = Number(
-            this.innerText
-                .replace(",", ".")
-                .split("—")[1]
-                .replace("x", "")
-                .trim()
-        );
+        disableButtons();
 
-        setTimeout(() => {
+        showMessage("⏳ Очікуйте 10 секунд...");
 
-            // 50% шанс виграти
-            let win = Math.random() < 0.5;
+        setTimeout(()=>{
 
-            if (win) {
+            let chance=getChance(currentCoef);
 
-                let prize = Math.round(bet * coef);
+            let win=Math.random()<chance;
 
-                money += prize;
+            if(win){
 
-                xp += 25;
+                let prize=Math.round(currentBet*currentCoef);
 
-                showMessage("🎉 Ви виграли " + prize + " ₴");
+                money+=prize;
 
-            } else {
+                addXP(25);
 
-                money -= bet;
+                currentButton.classList.remove("betLose");
+                currentButton.classList.add("betWin");
 
-                xp += 10;
+                showMessage("🎉 Ви виграли "+prize+" ₴");
 
-                showMessage("❌ Ставка не зайшла. Ви програли " + bet + " ₴", true);
+            }else{
 
-            }
+                money-=currentBet;
 
-            while (xp >= needXP) {
+                addXP(10);
 
-                xp -= needXP;
+                currentButton.classList.remove("betWin");
+                currentButton.classList.add("betLose");
 
-                level++;
-
-                needXP += 50;
-
-                showMessage("🏆 Новий рівень " + level);
+                showMessage("❌ Ви програли "+currentBet+" ₴",true);
 
             }
 
-            if (money <= 0) {
+            setTimeout(()=>{
 
-                money = 100;
-                level = 0;
-                xp = 0;
-                needXP = 100;
+                currentButton.classList.remove("betWin");
+                currentButton.classList.remove("betLose");
 
-                showMessage("💀 Ви збанкрутували!", true);
+            },600);
+
+            if(money<=0){
+
+                showMessage("💀 Ви збанкрутували!",true);
+
+                resetPlayer();
 
             }
 
             update();
 
-            // Розблоковуємо кнопки
-            document.querySelectorAll(".bet").forEach(btn => {
-                btn.disabled = false;
-            });
+            enableButtons();
 
-        }, 10000);
+            waiting=false;
+
+        },10000);
 
     };
 
 });
+
+window.addEventListener("beforeunload",saveGame);
+
+update();
