@@ -69,6 +69,47 @@ header{
     padding:30px;
 }
 
+.upgrade-panel{
+    background:#111827;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:16px;
+    padding:18px 20px;
+    margin-bottom:24px;
+    box-shadow:0 8px 20px rgba(0,0,0,.2);
+}
+
+.upgrade-panel h2{
+    font-size:22px;
+    margin-bottom:12px;
+}
+
+.upgrade-card{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    padding:12px 0;
+    border-top:1px solid rgba(255,255,255,.08);
+}
+
+.upgrade-card:first-of-type{
+    border-top:none;
+}
+
+.upgrade-btn{
+    background:#22c55e;
+    color:white;
+    border:none;
+    border-radius:10px;
+    padding:10px 14px;
+    cursor:pointer;
+    font-size:15px;
+}
+
+.upgrade-btn:hover{
+    background:#16a34a;
+}
+
 h1{
     text-align:center;
     margin-bottom:35px;
@@ -89,6 +130,10 @@ h1{
 .match:hover{
     transform:scale(1.02);
     box-shadow:0 0 25px rgba(34,197,94,.35);
+}
+
+.match.new{
+    animation:fadeIn .45s ease;
 }
 
 .teams{
@@ -138,18 +183,19 @@ footer{
     top:20px;
     left:50%;
     transform:translateX(-50%);
-    background:#22c55e;
+    background:linear-gradient(90deg,#16a34a,#22c55e);
     color:white;
     padding:18px 35px;
-    border-radius:12px;
+    border-radius:14px;
     font-size:20px;
     display:none;
     z-index:1000;
-    animation:show .4s;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+    animation:show .45s ease;
 }
 
 .popup.lose{
-    background:#dc2626;
+    background:linear-gradient(90deg,#b91c1c,#dc2626);
 }
 
 @keyframes show{
@@ -166,12 +212,26 @@ transform:translate(-50%,0);
 
 }
 
+@keyframes fadeIn{
+
+from{
+opacity:0;
+transform:translateY(10px);
+}
+
+to{
+opacity:1;
+transform:translateY(0);
+}
+
+}
+
 .betWin{
-    animation:flashGreen .5s;
+    animation:flashGreen .7s ease;
 }
 
 .betLose{
-    animation:flashRed .5s;
+    animation:flashRed .7s ease;
 }
 
 @keyframes flashGreen{
