@@ -260,6 +260,19 @@ background:#dc2626;
 background:#ef4444;
 }
 
+.wheel-panel{
+    margin-top:35px;
+    background:#111827;
+    border-radius:16px;
+    padding:20px;
+    text-align:center;
+}
+
+.wheel-info{
+    margin:15px 0;
+    font-size:18px;
+}
+
 100%{
 background:#22c55e;
 }
