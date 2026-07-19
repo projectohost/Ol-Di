@@ -605,6 +605,20 @@ footer{
     100%{background:#22c55e;}
 }
 
+.wheel-panel{
+    margin-top:35px;
+    background:#111827;
+    border-radius:16px;
+    padding:20px;
+    text-align:center;
+}
+
+.wheel-info{
+    margin:15px 0;
+    font-size:18px;
+}
+
+
 @media(max-width:900px){
     header{
         flex-direction:column;

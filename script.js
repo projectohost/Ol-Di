@@ -5,6 +5,8 @@ const eventsListEl = document.getElementById("eventsList");
 const upgradePanelEl = document.getElementById("upgradePanel");
 const langSwitcherEl = document.getElementById("langSwitcher");
 
+const spinBtn=document.getElementById("spinWheel");
+
 let money = Number(localStorage.getItem("money")) || 100;
 let level = Number(localStorage.getItem("level")) || 0;
 let xp = Number(localStorage.getItem("xp")) || 0;
@@ -21,6 +23,7 @@ let waiting = false;
 let eventId = 0;
 let nextEventTimer = null;
 let activeEvents = new Map();
+
 
 const translations = {
     uk: {
@@ -128,6 +131,82 @@ const translations = {
 function t(key, params = {}){
     const value = translations[currentLang][key] || translations.uk[key] || key;
     return String(value).replace(/\{(\w+)\}/g, (_, name) => params[name] ?? "");
+
+function spinWheel(){
+
+    const cost=25;
+
+    if(money<cost){
+
+        showMessage("❌ Недостатньо грошей!",true);
+        return;
+
+    }
+
+    money-=cost;
+
+    const rewards=[
+
+        {type:"money",value:100},
+        {type:"money",value:250},
+        {type:"money",value:500},
+
+        {type:"xp",value:30},
+        {type:"xp",value:60},
+        {type:"xp",value:120},
+
+        {type:"loseMoney",part:5},
+        {type:"loseXP",part:6}
+
+    ];
+
+    const reward=rewards[Math.floor(Math.random()*rewards.length)];
+
+    switch(reward.type){
+
+        case "money":
+
+            money+=reward.value;
+
+            showMessage("💰 +" + reward.value + " ₴");
+
+            break;
+
+        case "xp":
+
+            addXP(reward.value);
+
+            showMessage("⭐ +" + reward.value + " XP");
+
+            break;
+
+        case "loseMoney":
+
+            let lost=Math.floor(money/reward.part);
+
+            money-=lost;
+
+            showMessage("💀 -" + lost + " ₴",true);
+
+            break;
+
+        case "loseXP":
+
+            let lostXP=Math.floor(xp/reward.part);
+
+            xp-=lostXP;
+
+            if(xp<0)
+                xp=0;
+
+            showMessage("💀 -" + lostXP + " XP",true);
+
+            break;
+
+    }
+
+    update();
+
 }
 
 function saveGame(){
@@ -769,3 +848,4 @@ function init(){
 window.addEventListener("beforeunload", saveGame);
 
 init();
+spinBtn.onclick=spinWheel;
