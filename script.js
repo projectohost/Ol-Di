@@ -1,7 +1,8 @@
 "use strict";
 
 const CONFIG = Object.freeze({
-    realMsPerGameMinute: 100,
+    baseRealMsPerGameMinute: 100,
+    baseTimeMultiplier: 600,
     eventSpawnMs: 15_000,
     liveAnimationMs: 2_600,
     settledEventLifetimeMs: 18_000,
@@ -14,16 +15,15 @@ document.addEventListener("DOMContentLoaded", function() {
     const overlay = document.getElementById("consent-overlay");
     const acceptBtn = document.getElementById("accept-btn");
 
-    if (localStorage.getItem("userAcceptedTerms") === "true") {
-        overlay.style.display = "none";
+    if (overlay && acceptBtn) {
+        overlay.style.display = "flex";
+        acceptBtn.addEventListener("click", function() {
+            overlay.style.display = "none";
+            startGame();
+        });
+    } else {
         startGame();
     }
-
-    acceptBtn.addEventListener("click", function() {
-        localStorage.setItem("userAcceptedTerms", "true");
-        overlay.style.display = "none";
-        startGame();
-    });
 
     function startGame() {
         console.log("Логіка гри активована!");
@@ -47,6 +47,8 @@ const elements = {
     gameDay: $("#gameDay"),
     nextEventCountdown: $("#nextEventCountdown"),
     openEventsCount: $("#openEventsCount"),
+    speedChip: $("#speedChip"),
+    speedMultiplier: $("#timeMultiplier"),
     setClockBtn: $("#setClockBtn"),
     addDemoEventBtn: $("#addDemoEventBtn"),
     betModal: $("#betModal"),
@@ -116,6 +118,7 @@ const state = {
     passiveRate: readNumber("passiveRate", 1),
     passiveLevel: readNumber("passiveLevel", 0),
     lang: localStorage.getItem("lang") || "uk",
+    timeMultiplier: clampTimeMultiplier(readNumber("timeMultiplier", CONFIG.baseTimeMultiplier)),
     virtualAnchorMinutes: readNumber("virtualMinutes", 18 * 60),
     realAnchorMs: performance.now(),
     nextSpawnAtMs: performance.now() + CONFIG.eventSpawnMs,
@@ -125,46 +128,70 @@ const state = {
     lastPassiveTick: performance.now()
 };
 
-const eventTemplates = [
-    {
-        sport: "football", teamsUk: ["Реал Мадрид", "Барселона"], teamsEn: ["Real Madrid", "Barcelona"],
-        odds: [2.10, 3.40, 2.80], draw: true
-    },
-    {
-        sport: "football", teamsUk: ["Арсенал", "Манчестер Сіті"], teamsEn: ["Arsenal", "Manchester City"],
-        odds: [2.65, 3.15, 2.35], draw: true
-    },
-    {
-        sport: "basketball", teamsUk: ["Лейкерс", "Селтікс"], teamsEn: ["Lakers", "Celtics"],
-        odds: [1.85, 1.95]
-    },
-    {
-        sport: "formula", teamsUk: ["Верстаппен", "Норріс", "Леклер"], teamsEn: ["Verstappen", "Norris", "Leclerc"],
-        odds: [2.20, 3.25, 4.10]
-    },
-    {
-        sport: "tennis", teamsUk: ["Джоковіч", "Алькарас"], teamsEn: ["Djokovic", "Alcaraz"],
-        odds: [2.15, 1.78]
-    },
-    {
-        sport: "hockey", teamsUk: ["Ойлерс", "Мейпл Ліфс"], teamsEn: ["Oilers", "Maple Leafs"],
-        odds: [2.05, 2.20]
-    },
-    {
-        sport: "boxing", teamsUk: ["Усик", "Ф'юрі"], teamsEn: ["Usyk", "Fury"],
-        odds: [1.72, 2.35]
-    },
-    {
-        sport: "volleyball", teamsUk: ["Перуджа", "Трентіно"], teamsEn: ["Perugia", "Trentino"],
-        odds: [1.90, 2.05]
-    }
-];
+const eventPools = {
+    football: [
+        { teamsUk: ["Реал Мадрид", "Барселона"], teamsEn: ["Real Madrid", "Barcelona"], odds: [2.10, 3.40, 2.80], draw: true },
+        { teamsUk: ["Баварія", "Боруссія Дортмунд"], teamsEn: ["Bayern Munich", "Borussia Dortmund"], odds: [1.95, 3.55, 3.20], draw: true },
+        { teamsUk: ["Манчестер Сіті", "Арсенал"], teamsEn: ["Manchester City", "Arsenal"], odds: [2.05, 3.25, 3.40], draw: true },
+        { teamsUk: ["ПСЖ", "Ліверпуль"], teamsEn: ["PSG", "Liverpool"], odds: [2.35, 3.15, 2.75], draw: true },
+        { teamsUk: ["Інтер", "Мілан"], teamsEn: ["Inter", "AC Milan"], odds: [2.20, 3.35, 2.95], draw: true },
+        { teamsUk: ["Байер", "Реал Сосьєдад"], teamsEn: ["Bayer Leverkusen", "Real Sociedad"], odds: [2.45, 3.10, 2.90], draw: true }
+    ],
+    basketball: [
+        { teamsUk: ["Лейкерс", "Селтікс"], teamsEn: ["Lakers", "Celtics"], odds: [1.85, 1.95] },
+        { teamsUk: ["Буллз", "Г'юстон Рокетс"], teamsEn: ["Bulls", "Houston Rockets"], odds: [1.78, 2.08] },
+        { teamsUk: ["Маверікс", "Нейкс"], teamsEn: ["Mavericks", "Knicks"], odds: [1.92, 1.98] },
+        { teamsUk: ["Клівленд Кавальєрс", "Мілвокі Бакс"], teamsEn: ["Cleveland Cavaliers", "Milwaukee Bucks"], odds: [1.82, 2.04] },
+        { teamsUk: ["Фінікс Санз", "Лейкерс"], teamsEn: ["Phoenix Suns", "Lakers"], odds: [1.88, 2.01] }
+    ],
+    formula: [
+        { teamsUk: ["Верстаппен", "Норріс", "Леклер"], teamsEn: ["Verstappen", "Norris", "Leclerc"], odds: [2.20, 3.25, 4.10] },
+        { teamsUk: ["Рассел", "П'ярт", "Окон"], teamsEn: ["Russell", "Piastri", "Ocon"], odds: [3.10, 3.55, 4.35] },
+        { teamsUk: ["Алонсо", "Гаслі", "Сайнс"], teamsEn: ["Alonso", "Gasly", "Sainz"], odds: [4.20, 3.80, 2.95] },
+        { teamsUk: ["Гунтар", "Чжоу", "Боттас"], teamsEn: ["Hulkenberg", "Zhou", "Bottas"], odds: [3.45, 4.10, 3.70] },
+        { teamsUk: ["Ферстаппен", "Макларен", "Ред Булл"], teamsEn: ["F1 Field", "McLaren", "Red Bull"], odds: [2.80, 3.20, 3.60] }
+    ],
+    tennis: [
+        { teamsUk: ["Джоковіч", "Алькарас"], teamsEn: ["Djokovic", "Alcaraz"], odds: [2.15, 1.78] },
+        { teamsUk: ["Сіннер", "Зверєв"], teamsEn: ["Sinner", "Zverev"], odds: [1.95, 2.12] },
+        { teamsUk: ["Медведєв", "Рубльов"], teamsEn: ["Medvedev", "Rublev"], odds: [2.05, 1.95] },
+        { teamsUk: ["Шварцман", "Дімітров"], teamsEn: ["Schwartzman", "Dimitrov"], odds: [2.18, 1.88] },
+        { teamsUk: ["Фріц", "Тіяфо"], teamsEn: ["Fritz", "Tiafoe"], odds: [2.02, 1.99] }
+    ],
+    hockey: [
+        { teamsUk: ["Ойлерс", "Мейпл Ліфс"], teamsEn: ["Oilers", "Maple Leafs"], odds: [2.05, 2.20] },
+        { teamsUk: ["Блюз", "Канадієнс"], teamsEn: ["Bruins", "Canadiens"], odds: [2.15, 1.95] },
+        { teamsUk: ["Рейнджерс", "Пінгвінс"], teamsEn: ["Rangers", "Penguins"], odds: [2.08, 2.00] },
+        { teamsUk: ["Капіталс", "Лайтнінг"], teamsEn: ["Capitals", "Lightning"], odds: [2.10, 1.98] },
+        { teamsUk: ["Девілс", "Блекгокс"], teamsEn: ["Devils", "Blackhawks"], odds: [2.12, 1.92] }
+    ],
+    boxing: [
+        { teamsUk: ["Усик", "Ф'юрі"], teamsEn: ["Usyk", "Fury"], odds: [1.72, 2.35] },
+        { teamsUk: ["Джошуа", "Міллер"], teamsEn: ["Joshua", "Miller"], odds: [1.84, 2.10] },
+        { teamsUk: ["Валлі", "Пак'яо"], teamsEn: ["Valdez", "Pacquiao"], odds: [1.90, 2.02] },
+        { teamsUk: ["Дюбуа", "Ганн"], teamsEn: ["Dubois", "Hane"], odds: [1.88, 2.06] },
+        { teamsUk: ["Сото", "Шишкін"], teamsEn: ["Soto", "Shishkin"], odds: [1.81, 2.15] }
+    ],
+    volleyball: [
+        { teamsUk: ["Перуджа", "Трентіно"], teamsEn: ["Perugia", "Trentino"], odds: [1.90, 2.05] },
+        { teamsUk: ["Зеніт", "Локомотив"], teamsEn: ["Zenit", "Lokomotiv"], odds: [1.95, 2.00] },
+        { teamsUk: ["Турку", "Штутгарт"], teamsEn: ["Turku", "Stuttgart"], odds: [1.88, 2.06] },
+        { teamsUk: ["Полі", "Флоренція"], teamsEn: ["Poli", "Florence"], odds: [2.03, 1.97] },
+        { teamsUk: ["Казань", "Скандербег"], teamsEn: ["Kazan", "Skanderbeg"], odds: [1.92, 2.01] }
+    ]
+};
 
 function readNumber(key, fallback) {
     const raw = localStorage.getItem(key);
     if (raw === null || raw === "") return fallback;
     const value = Number(raw);
     return Number.isFinite(value) ? value : fallback;
+}
+
+function clampTimeMultiplier(value) {
+    const normalized = Number(value);
+    if (!Number.isFinite(normalized)) return CONFIG.baseTimeMultiplier;
+    return Math.min(700, Math.max(1, Math.round(normalized)));
 }
 
 function t(key, params = {}) {
@@ -188,12 +215,17 @@ function saveGame() {
     localStorage.setItem("passiveRate", String(state.passiveRate));
     localStorage.setItem("passiveLevel", String(state.passiveLevel));
     localStorage.setItem("lang", state.lang);
+    localStorage.setItem("timeMultiplier", String(state.timeMultiplier));
     localStorage.setItem("virtualMinutes", String(getVirtualMinutes()));
+}
+
+function getRealMsPerGameMinute() {
+    return CONFIG.baseRealMsPerGameMinute * (CONFIG.baseTimeMultiplier / state.timeMultiplier);
 }
 
 function getVirtualMinutes() {
     const elapsedRealMs = performance.now() - state.realAnchorMs;
-    return state.virtualAnchorMinutes + elapsedRealMs / CONFIG.realMsPerGameMinute;
+    return state.virtualAnchorMinutes + elapsedRealMs / getRealMsPerGameMinute();
 }
 
 function setVirtualMinutes(minutes) {
@@ -210,6 +242,13 @@ function formatVirtualTime(totalMinutes, includeDay = false) {
     const minutes = withinDay % 60;
     const clock = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
     return includeDay ? `${t("day")} ${day} · ${clock}` : clock;
+}
+
+function setTimeMultiplier(multiplier) {
+    state.timeMultiplier = clampTimeMultiplier(multiplier);
+    if (elements.speedChip) elements.speedChip.textContent = `×${state.timeMultiplier}`;
+    if (elements.speedMultiplier) elements.speedMultiplier.value = String(state.timeMultiplier);
+    saveGame();
 }
 
 function updateClock() {
@@ -283,16 +322,24 @@ function buyUpgrade(cost) {
     renderUpgrades();
 }
 
+function buildRandomOdds(baseOdds) {
+    return baseOdds.map(odd => Number(Math.max(1.05, odd + (Math.random() - 0.5) * 0.24).toFixed(2)));
+}
+
 function createEvent() {
-    const template = eventTemplates[Math.floor(Math.random() * eventTemplates.length)];
+    const sportKeys = Object.keys(eventPools);
+    const sport = sportKeys[Math.floor(Math.random() * sportKeys.length)];
+    const pool = eventPools[sport];
+    const template = pool[Math.floor(Math.random() * pool.length)];
     const teams = state.lang === "uk" ? template.teamsUk : template.teamsEn;
+    const odds = buildRandomOdds(template.odds);
     const options = template.draw
         ? [
-            { key: "a", label: teams[0], odds: template.odds[0] },
-            { key: "draw", label: t("drawOutcome"), odds: template.odds[1] },
-            { key: "b", label: teams[1], odds: template.odds[2] }
+            { key: "a", label: teams[0], odds: odds[0] },
+            { key: "draw", label: t("drawOutcome"), odds: odds[1] },
+            { key: "b", label: teams[1], odds: odds[2] }
         ]
-        : teams.map((team, index) => ({ key: String.fromCharCode(97 + index), label: team, odds: template.odds[index] }));
+        : teams.map((team, index) => ({ key: String.fromCharCode(97 + index), label: team, odds: odds[index] }));
 
     state.eventCounter += 1;
     const nowVirtual = getVirtualMinutes();
@@ -300,7 +347,7 @@ function createEvent() {
 
     return {
         id: `event-${Date.now()}-${state.eventCounter}`,
-        sport: template.sport,
+        sport,
         teamsUk: template.teamsUk,
         teamsEn: template.teamsEn,
         options,
@@ -387,7 +434,7 @@ function renderSportVisual(event) {
 function statusMarkup(event) {
     const now = getVirtualMinutes();
     if (event.status === "open") {
-        const realSeconds = Math.max(0, (event.startAt - now) * CONFIG.realMsPerGameMinute / 1000);
+    const realSeconds = Math.max(0, (event.startAt - now) * getRealMsPerGameMinute() / 1000);
         return `<span class="status-pill open">⏳ ${t("startsIn", { seconds: realSeconds.toFixed(1).replace(".", ",") })}</span>`;
     }
     if (event.status === "live") return `<span class="status-pill live"><i></i>${t("live")}</span>`;
@@ -483,7 +530,7 @@ function updateEventStatusOnly(event) {
     const card = document.getElementById(event.id);
     const status = card?.querySelector(".event-time .status-pill");
     if (!status) return;
-    const realSeconds = Math.max(0, (event.startAt - getVirtualMinutes()) * CONFIG.realMsPerGameMinute / 1000);
+    const realSeconds = Math.max(0, (event.startAt - getVirtualMinutes()) * getRealMsPerGameMinute() / 1000);
     status.innerHTML = `⏳ ${t("startsIn", { seconds: realSeconds.toFixed(1).replace(".", ",") })}`;
 }
 
@@ -686,51 +733,66 @@ function handleSpawning(now) {
 }
 
 function bindEvents() {
-    elements.langSwitcher.addEventListener("change", event => setLanguage(event.target.value));
-    elements.spinWheel.addEventListener("click", spinWheel);
-    elements.addDemoEventBtn.addEventListener("click", () => addEvent(true));
-    elements.setClockBtn.addEventListener("click", () => {
-        elements.clockInput.value = formatVirtualTime(getVirtualMinutes());
-        openModal(elements.clockModal);
-    });
-    elements.confirmClockBtn.addEventListener("click", () => {
-        const [hours, minutes] = elements.clockInput.value.split(":").map(Number);
-        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
-        const currentDay = Math.floor(getVirtualMinutes() / 1440);
-        setVirtualMinutes(currentDay * 1440 + hours * 60 + minutes);
-        state.events.forEach(event => {
-            if (event.status === "open") event.startAt = getVirtualMinutes() + 45 + Math.floor(Math.random() * 76);
+    if (elements.langSwitcher) elements.langSwitcher.addEventListener("change", event => setLanguage(event.target.value));
+    if (elements.spinWheel) elements.spinWheel.addEventListener("click", spinWheel);
+    if (elements.addDemoEventBtn) elements.addDemoEventBtn.addEventListener("click", () => addEvent(true));
+    if (elements.speedMultiplier) {
+        elements.speedMultiplier.addEventListener("change", event => {
+            setTimeMultiplier(event.target.value);
+            updateClock();
         });
-        renderAllEvents();
-        closeModal(elements.clockModal);
-        toast(t("clockSaved"), "win");
-    });
-    elements.betAmount.addEventListener("input", updatePotentialPayout);
-    elements.confirmBetBtn.addEventListener("click", confirmBet);
+    }
+    if (elements.setClockBtn && elements.clockInput && elements.clockModal) {
+        elements.setClockBtn.addEventListener("click", () => {
+            elements.clockInput.value = formatVirtualTime(getVirtualMinutes());
+            openModal(elements.clockModal);
+        });
+    }
+    if (elements.confirmClockBtn && elements.clockInput && elements.clockModal) {
+        elements.confirmClockBtn.addEventListener("click", () => {
+            const [hours, minutes] = elements.clockInput.value.split(":").map(Number);
+            if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
+            const currentDay = Math.floor(getVirtualMinutes() / 1440);
+            setVirtualMinutes(currentDay * 1440 + hours * 60 + minutes);
+            state.events.forEach(event => {
+                if (event.status === "open") event.startAt = getVirtualMinutes() + 45 + Math.floor(Math.random() * 76);
+            });
+            renderAllEvents();
+            closeModal(elements.clockModal);
+            toast(t("clockSaved"), "win");
+        });
+    }
+    if (elements.betAmount) elements.betAmount.addEventListener("input", updatePotentialPayout);
+    if (elements.confirmBetBtn) elements.confirmBetBtn.addEventListener("click", confirmBet);
 
     $$("[data-close-modal]").forEach(node => node.addEventListener("click", () => {
         state.pendingBet = null;
-        closeModal(elements.betModal);
+        if (elements.betModal) closeModal(elements.betModal);
     }));
-    $$("[data-close-clock]").forEach(node => node.addEventListener("click", () => closeModal(elements.clockModal)));
+    $$("[data-close-clock]").forEach(node => node.addEventListener("click", () => {
+        if (elements.clockModal) closeModal(elements.clockModal);
+    }));
     $$(".quick-amounts button").forEach(button => button.addEventListener("click", () => {
-        elements.betAmount.value = button.dataset.amount === "max" ? String(Math.max(1, Math.floor(state.money))) : button.dataset.amount;
-        updatePotentialPayout();
+        if (elements.betAmount) {
+            elements.betAmount.value = button.dataset.amount === "max" ? String(Math.max(1, Math.floor(state.money))) : button.dataset.amount;
+            updatePotentialPayout();
+        }
     }));
 
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") {
             state.pendingBet = null;
-            closeModal(elements.betModal);
-            closeModal(elements.clockModal);
+            if (elements.betModal) closeModal(elements.betModal);
+            if (elements.clockModal) closeModal(elements.clockModal);
         }
-        if (event.key === "Enter" && elements.betModal.classList.contains("open")) confirmBet();
+        if (event.key === "Enter" && elements.betModal && elements.betModal.classList.contains("open")) confirmBet();
     });
     window.addEventListener("beforeunload", saveGame);
 }
 
 function init() {
     translateStaticUI();
+    setTimeMultiplier(state.timeMultiplier);
     renderUpgrades();
     bindEvents();
 

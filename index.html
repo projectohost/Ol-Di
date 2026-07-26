@@ -8,6 +8,14 @@
     <link rel="stylesheet" href="main.css">
 </head>
 <body>
+<div id="consent-overlay" class="overlay">
+    <div class="consent-box">
+        <h2>Згода на участь у грі</h2>
+        <p>Щоб грати, ви повинні погодитись із правилами використання. Після натискання кнопки нижче ви підтверджуєте, що розумієте, що це гра, а не реальні гроші, і не будете мати претензій щодо гри та її розробників.</p>
+        <button id="accept-btn">Я погоджуюсь</button>
+    </div>
+</div>
+
 <header class="site-header">
     <a class="logo" href="#" aria-label="football bet">🏟️ football bet</a>
 
@@ -18,7 +26,10 @@
             <span id="gameDay">День 1</span>
         </div>
         <div class="clock-meta">
-            <span class="speed-chip">×600</span>
+            <label class="speed-control" for="timeMultiplier">
+                <span class="speed-chip" id="speedChip">×600</span>
+                <input id="timeMultiplier" class="speed-input" type="number" min="1" max="700" step="1" value="600" aria-label="Множник часу">
+            </label>
             <span id="nextEventCountdown">Новий захід через 15,0 с</span>
         </div>
         <button id="setClockBtn" class="icon-btn" type="button" title="Змінити ігровий час">⚙️</button>
