@@ -1,851 +1,760 @@
-const moneyEl = document.getElementById("money");
-const levelEl = document.getElementById("level");
-const xpBar = document.getElementById("xpBar");
-const eventsListEl = document.getElementById("eventsList");
-const upgradePanelEl = document.getElementById("upgradePanel");
-const langSwitcherEl = document.getElementById("langSwitcher");
+"use strict";
 
-const spinBtn=document.getElementById("spinWheel");
+const CONFIG = Object.freeze({
+    realMsPerGameMinute: 100,
+    eventSpawnMs: 15_000,
+    liveAnimationMs: 2_600,
+    settledEventLifetimeMs: 18_000,
+    maxActiveEvents: 8,
+    initialBalance: 100,
+    wheelCost: 25
+});
 
-let money = Number(localStorage.getItem("money")) || 100;
-let level = Number(localStorage.getItem("level")) || 0;
-let xp = Number(localStorage.getItem("xp")) || 0;
-let needXP = Number(localStorage.getItem("needXP")) || 100;
-let passiveRate = Number(localStorage.getItem("passiveRate")) || 1;
-let passiveLevel = Number(localStorage.getItem("passiveLevel")) || 0;
-let lastSeen = Number(localStorage.getItem("lastSeen")) || Date.now();
-let currentLang = localStorage.getItem("lang") || "uk";
+document.addEventListener("DOMContentLoaded", function() {
+    const overlay = document.getElementById("consent-overlay");
+    const acceptBtn = document.getElementById("accept-btn");
 
-let currentButton = null;
-let currentCoef = 0;
-let currentBet = 0;
-let waiting = false;
-let eventId = 0;
-let nextEventTimer = null;
-let activeEvents = new Map();
+    if (localStorage.getItem("userAcceptedTerms") === "true") {
+        overlay.style.display = "none";
+        startGame();
+    }
 
+    acceptBtn.addEventListener("click", function() {
+        localStorage.setItem("userAcceptedTerms", "true");
+        overlay.style.display = "none";
+        startGame();
+    });
+
+    function startGame() {
+        console.log("Логіка гри активована!");
+    }
+});
+
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+const elements = {
+    money: $("#money"),
+    level: $("#level"),
+    xpBar: $("#xpBar"),
+    eventsList: $("#eventsList"),
+    upgradePanel: $("#upgradePanel"),
+    langSwitcher: $("#langSwitcher"),
+    spinWheel: $("#spinWheel"),
+    miniWheel: $("#miniWheel"),
+    gameClock: $("#gameClock"),
+    gameDay: $("#gameDay"),
+    nextEventCountdown: $("#nextEventCountdown"),
+    openEventsCount: $("#openEventsCount"),
+    setClockBtn: $("#setClockBtn"),
+    addDemoEventBtn: $("#addDemoEventBtn"),
+    betModal: $("#betModal"),
+    betModalTitle: $("#betModalTitle"),
+    betModalPick: $("#betModalPick"),
+    betAmount: $("#betAmount"),
+    potentialPayout: $("#potentialPayout"),
+    confirmBetBtn: $("#confirmBetBtn"),
+    clockModal: $("#clockModal"),
+    clockInput: $("#clockInput"),
+    confirmClockBtn: $("#confirmClockBtn"),
+    toast: $("#toast")
+};
 
 const translations = {
     uk: {
-        heading: "Ставки на спорт",
-        levelLabel: "Рівень",
-        upgradeTitle: "Покращення доходу",
-        baseIncome: "Базовий дохід",
-        currentLevel: "Поточний рівень",
-        upgradeIncome: "Покращити дохід",
-        upgradeCost: "Коштує {cost} $",
-        buy: "Купити",
-        buySuccess: "⬆️ Покращення куплено! Тепер ви заробляєте {rate} $/с",
-        upgradeError: "❌ Недостатньо грошей для покращення!",
-        newLevel: "🏆 Новий рівень {level}",
-        offlineGain: "💰 Ви заробили {gain} $ офлайн за {seconds} с",
-        newEvent: "🆕 Новий захід доступний!",
-        enterBetAmount: "Введіть суму ставки",
-        notEnoughMoney: "❌ Недостатньо грошей!",
-        pending: "⏳ Очікуйте 10 секунд...",
-        win: "🎉 Ви виграли {prize} ₴!\nВаш баланс тепер: {money} ₴",
-        lose: "❌ Ви програли {bet} ₴.\nЗалишилось: {money} ₴",
-        bankrupt: "💀 Ви збанкрутували!",
-        yourPick: "Твій вибір",
-        pickLabel: "{pick}",
-        liveAnimation: "⚡ Жива анімація",
-        previewHint: "{icon} {name} • hover-ефект активний",
-        today: "Сьогодні",
-        tomorrow: "Завтра",
-        football: "Футбол",
-        basketball: "Баскетбол",
-        formula: "Формула 1",
-        tennis: "Теніс",
-        hockey: "Хокей",
-        boxing: "Бокс",
-        volleyball: "Волейбол",
-        outcomeFootballWin: "⚽ Влучили у ворота! Удар вийшов точним",
-        outcomeFootballDraw: "🤝 Нічия — м'яч відбився від штанги",
-        outcomeFootballLose: "🥅 Промах — суперник забив у відповідь",
-        outcomeBasketballWin: "🏀 Кидок влучив! Сітка дрогнула",
-        outcomeBasketballLose: "🧺 Промах — м'яч зрикошетив від обода",
-        outcomeFormulaWin: "🏎️ Супер-петля! Машина вийшла на лідерство",
-        outcomeFormulaLose: "🚦 Зупинка в боксах — шанс було втрачено",
-        outcomeTennisWin: "🎾 Подача вийшла в мережу — але влучили в темп",
-        outcomeTennisLose: "🧲 Розіграш пішов не в той бік",
-        outcomeHockeyWin: "🏒 Шайба влетіла у ворота!",
-        outcomeHockeyLose: "🧊 Промах — шайба пройшла повз",
-        outcomeBoxingWin: "🥊 Нокаут! Удар був точним",
-        outcomeBoxingLose: "🧤 Промах — суперник відбив атаку",
-        outcomeVolleyballWin: "🏐 Влучний удар — очко за вами",
-        outcomeVolleyballLose: "🛑 Подача вийшла в аут",
-        defaultOutcome: "⚡ Подія завершилась"
+        gameTime: "Ігровий час", simulatorLabel: "Ігровий симулятор", heading: "Спортивні події",
+        heroText: "Події стартують за ігровим годинником. Одна ігрова хвилина дорівнює 0,1 секунди реального часу.",
+        openEvents: "відкритих подій", spawnRate: "до нового заходу", minuteRate: "за ігрову хвилину",
+        wheelTitle: "🎡 Колесо фортуни", spin: "Крутити колесо", probabilityTitle: "Як працює шанс",
+        probabilityText: "Результат обирається випадково. Вага кожного варіанта розраховується як 1 ÷ коефіцієнт і нормалізується між усіма результатами події.",
+        schedule: "Розклад", eventsTitle: "Актуальні заходи", addEvent: "+ Додати зараз", virtualCredits: "лише віртуальні кредити",
+        placeBet: "Зробити ставку", betAmount: "Сума ставки", allIn: "Усе", potentialPayout: "Можлива виплата",
+        confirmBet: "Підтвердити", clockSettings: "Налаштування годинника", setGameTime: "Встановити ігровий час",
+        timeFormat: "Час у форматі ГГ:ХХ", saveTime: "Зберегти час", day: "День", nextEventIn: "Новий захід через {seconds} с",
+        level: "Рівень", incomeUpgrades: "Пасивний дохід", income: "Дохід", perSecond: "₴/с", upgrade: "Покращити",
+        upgradeCost: "Вартість: {cost} ₴", notEnough: "Недостатньо коштів", betAccepted: "Ставку {amount} ₴ прийнято",
+        eventStarted: "Подія розпочалася", won: "Виграш: +{amount} ₴", lost: "Ставка програла", drawOutcome: "Нічия",
+        startsIn: "Старт через {seconds} с", live: "НАЖИВО", finished: "Завершено", yourBet: "Ваша ставка",
+        payout: "Виплата", noBet: "Ставку не зроблено", eventClosed: "Прийом ставок завершено", alreadyBet: "На цю подію вже є ставка",
+        invalidAmount: "Введіть коректну суму", newEvent: "Додано новий спортивний захід", clockSaved: "Ігровий час змінено",
+        wheelSpinning: "Колесо обертається…", wheelMoney: "+{amount} ₴", wheelXp: "+{amount} XP", wheelLose: "−{amount} ₴",
+        football: "Футбол", basketball: "Баскетбол", formula: "Формула 1", tennis: "Теніс", hockey: "Хокей", boxing: "Бокс", volleyball: "Волейбол",
+        resultTeam: "Перемога: {team}", resultDraw: "Нічия — м'яч пройшов повз ворота",
+        winMessage: "Ви вгадали результат", loseMessage: "Результат не збігся з вашою ставкою",
+        fairChance: "Орієнтовний шанс: {chance}%", balance: "Баланс", reset: "Скинути прогрес"
     },
     en: {
-        heading: "Sports betting",
-        levelLabel: "Level",
-        upgradeTitle: "Income upgrades",
-        baseIncome: "Base income",
-        currentLevel: "Current level",
-        upgradeIncome: "Upgrade income",
-        upgradeCost: "Costs {cost} $",
-        buy: "Buy",
-        buySuccess: "⬆️ Upgrade purchased! You now earn {rate} $/s",
-        upgradeError: "❌ Not enough money for the upgrade!",
-        newLevel: "🏆 New level {level}",
-        offlineGain: "💰 You earned {gain} $ offline for {seconds} s",
-        newEvent: "🆕 A new event is available!",
-        enterBetAmount: "Enter the bet amount",
-        notEnoughMoney: "❌ Not enough money!",
-        pending: "⏳ Please wait 10 seconds...",
-        win: "🎉 You won {prize} ₴!\nYour balance is now {money} ₴",
-        lose: "❌ You lost {bet} ₴.\nRemaining: {money} ₴",
-        bankrupt: "💀 You went bankrupt!",
-        yourPick: "Your pick",
-        pickLabel: "{pick}",
-        liveAnimation: "⚡ Live animation",
-        previewHint: "{icon} {name} • hover effect active",
-        today: "Today",
-        tomorrow: "Tomorrow",
-        football: "Football",
-        basketball: "Basketball",
-        formula: "Formula 1",
-        tennis: "Tennis",
-        hockey: "Hockey",
-        boxing: "Boxing",
-        volleyball: "Volleyball",
-        outcomeFootballWin: "⚽ Goal! The shot was precise",
-        outcomeFootballDraw: "🤝 Draw — the ball hit the post",
-        outcomeFootballLose: "🥅 Miss — the opponent scored back",
-        outcomeBasketballWin: "🏀 Shot went in! The rim shook",
-        outcomeBasketballLose: "🧺 Miss — the ball bounced off the rim",
-        outcomeFormulaWin: "🏎️ Super lap! The car took the lead",
-        outcomeFormulaLose: "🚦 Stopped in the pits — the chance was lost",
-        outcomeTennisWin: "🎾 The serve went into the net — but the tempo was right",
-        outcomeTennisLose: "🧲 The rally went the wrong way",
-        outcomeHockeyWin: "🏒 The puck hit the net!",
-        outcomeHockeyLose: "🧊 Miss — the puck passed by",
-        outcomeBoxingWin: "🥊 Knockout! The punch was sharp",
-        outcomeBoxingLose: "🧤 Miss — the opponent blocked the attack",
-        outcomeVolleyballWin: "🏐 Great hit — point for you",
-        outcomeVolleyballLose: "🛑 The serve went out",
-        defaultOutcome: "⚡ The event is over"
+        gameTime: "Game time", simulatorLabel: "Game simulator", heading: "Sports events",
+        heroText: "Events start according to the game clock. One game minute equals 0.1 seconds of real time.",
+        openEvents: "open events", spawnRate: "until a new event", minuteRate: "per game minute",
+        wheelTitle: "🎡 Fortune wheel", spin: "Spin the wheel", probabilityTitle: "How probability works",
+        probabilityText: "The result is random. Each option weight is calculated as 1 ÷ odds and normalized across all outcomes.",
+        schedule: "Schedule", eventsTitle: "Current events", addEvent: "+ Add now", virtualCredits: "virtual credits only",
+        placeBet: "Place a bet", betAmount: "Bet amount", allIn: "All", potentialPayout: "Potential payout",
+        confirmBet: "Confirm", clockSettings: "Clock settings", setGameTime: "Set game time",
+        timeFormat: "Time in HH:MM format", saveTime: "Save time", day: "Day", nextEventIn: "New event in {seconds}s",
+        level: "Level", incomeUpgrades: "Passive income", income: "Income", perSecond: "₴/s", upgrade: "Upgrade",
+        upgradeCost: "Cost: {cost} ₴", notEnough: "Not enough funds", betAccepted: "Bet of {amount} ₴ accepted",
+        eventStarted: "Event started", won: "Win: +{amount} ₴", lost: "The bet lost", drawOutcome: "Draw",
+        startsIn: "Starts in {seconds}s", live: "LIVE", finished: "Finished", yourBet: "Your bet",
+        payout: "Payout", noBet: "No bet placed", eventClosed: "Betting is closed", alreadyBet: "A bet already exists for this event",
+        invalidAmount: "Enter a valid amount", newEvent: "A new sports event was added", clockSaved: "Game time changed",
+        wheelSpinning: "Wheel is spinning…", wheelMoney: "+{amount} ₴", wheelXp: "+{amount} XP", wheelLose: "−{amount} ₴",
+        football: "Football", basketball: "Basketball", formula: "Formula 1", tennis: "Tennis", hockey: "Hockey", boxing: "Boxing", volleyball: "Volleyball",
+        resultTeam: "Winner: {team}", resultDraw: "Draw — the ball missed both goals",
+        winMessage: "You predicted the result", loseMessage: "The result did not match your bet",
+        fairChance: "Estimated chance: {chance}%", balance: "Balance", reset: "Reset progress"
     }
 };
 
-function t(key, params = {}){
-    const value = translations[currentLang][key] || translations.uk[key] || key;
+const state = {
+    money: readNumber("money", CONFIG.initialBalance),
+    level: readNumber("level", 0),
+    xp: readNumber("xp", 0),
+    needXP: readNumber("needXP", 100),
+    passiveRate: readNumber("passiveRate", 1),
+    passiveLevel: readNumber("passiveLevel", 0),
+    lang: localStorage.getItem("lang") || "uk",
+    virtualAnchorMinutes: readNumber("virtualMinutes", 18 * 60),
+    realAnchorMs: performance.now(),
+    nextSpawnAtMs: performance.now() + CONFIG.eventSpawnMs,
+    events: new Map(),
+    eventCounter: 0,
+    pendingBet: null,
+    lastPassiveTick: performance.now()
+};
+
+const eventTemplates = [
+    {
+        sport: "football", teamsUk: ["Реал Мадрид", "Барселона"], teamsEn: ["Real Madrid", "Barcelona"],
+        odds: [2.10, 3.40, 2.80], draw: true
+    },
+    {
+        sport: "football", teamsUk: ["Арсенал", "Манчестер Сіті"], teamsEn: ["Arsenal", "Manchester City"],
+        odds: [2.65, 3.15, 2.35], draw: true
+    },
+    {
+        sport: "basketball", teamsUk: ["Лейкерс", "Селтікс"], teamsEn: ["Lakers", "Celtics"],
+        odds: [1.85, 1.95]
+    },
+    {
+        sport: "formula", teamsUk: ["Верстаппен", "Норріс", "Леклер"], teamsEn: ["Verstappen", "Norris", "Leclerc"],
+        odds: [2.20, 3.25, 4.10]
+    },
+    {
+        sport: "tennis", teamsUk: ["Джоковіч", "Алькарас"], teamsEn: ["Djokovic", "Alcaraz"],
+        odds: [2.15, 1.78]
+    },
+    {
+        sport: "hockey", teamsUk: ["Ойлерс", "Мейпл Ліфс"], teamsEn: ["Oilers", "Maple Leafs"],
+        odds: [2.05, 2.20]
+    },
+    {
+        sport: "boxing", teamsUk: ["Усик", "Ф'юрі"], teamsEn: ["Usyk", "Fury"],
+        odds: [1.72, 2.35]
+    },
+    {
+        sport: "volleyball", teamsUk: ["Перуджа", "Трентіно"], teamsEn: ["Perugia", "Trentino"],
+        odds: [1.90, 2.05]
+    }
+];
+
+function readNumber(key, fallback) {
+    const raw = localStorage.getItem(key);
+    if (raw === null || raw === "") return fallback;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+}
+
+function t(key, params = {}) {
+    const value = translations[state.lang]?.[key] ?? translations.uk[key] ?? key;
     return String(value).replace(/\{(\w+)\}/g, (_, name) => params[name] ?? "");
-
-function spinWheel(){
-
-    const cost=25;
-
-    if(money<cost){
-
-        showMessage("❌ Недостатньо грошей!",true);
-        return;
-
-    }
-
-    money-=cost;
-
-    const rewards=[
-
-        {type:"money",value:100},
-        {type:"money",value:250},
-        {type:"money",value:500},
-
-        {type:"xp",value:30},
-        {type:"xp",value:60},
-        {type:"xp",value:120},
-
-        {type:"loseMoney",part:5},
-        {type:"loseXP",part:6}
-
-    ];
-
-    const reward=rewards[Math.floor(Math.random()*rewards.length)];
-
-    switch(reward.type){
-
-        case "money":
-
-            money+=reward.value;
-
-            showMessage("💰 +" + reward.value + " ₴");
-
-            break;
-
-        case "xp":
-
-            addXP(reward.value);
-
-            showMessage("⭐ +" + reward.value + " XP");
-
-            break;
-
-        case "loseMoney":
-
-            let lost=Math.floor(money/reward.part);
-
-            money-=lost;
-
-            showMessage("💀 -" + lost + " ₴",true);
-
-            break;
-
-        case "loseXP":
-
-            let lostXP=Math.floor(xp/reward.part);
-
-            xp-=lostXP;
-
-            if(xp<0)
-                xp=0;
-
-            showMessage("💀 -" + lostXP + " XP",true);
-
-            break;
-
-    }
-
-    update();
-
 }
 
-function saveGame(){
-
-    localStorage.setItem("money", money);
-    localStorage.setItem("level", level);
-    localStorage.setItem("xp", xp);
-    localStorage.setItem("needXP", needXP);
-    localStorage.setItem("passiveRate", passiveRate);
-    localStorage.setItem("passiveLevel", passiveLevel);
-    localStorage.setItem("lastSeen", Date.now());
-    localStorage.setItem("lang", currentLang);
-
+function roundMoney(value) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function update(){
+function formatMoney(value) {
+    return new Intl.NumberFormat(state.lang === "uk" ? "uk-UA" : "en-US", { maximumFractionDigits: 2 }).format(value);
+}
 
-    moneyEl.innerHTML = "💰 " + money + " ₴";
-    levelEl.innerHTML = "⭐ " + t("levelLabel") + " " + level;
+function saveGame() {
+    localStorage.setItem("money", String(state.money));
+    localStorage.setItem("level", String(state.level));
+    localStorage.setItem("xp", String(state.xp));
+    localStorage.setItem("needXP", String(state.needXP));
+    localStorage.setItem("passiveRate", String(state.passiveRate));
+    localStorage.setItem("passiveLevel", String(state.passiveLevel));
+    localStorage.setItem("lang", state.lang);
+    localStorage.setItem("virtualMinutes", String(getVirtualMinutes()));
+}
 
-    let percent = (xp / needXP) * 100;
+function getVirtualMinutes() {
+    const elapsedRealMs = performance.now() - state.realAnchorMs;
+    return state.virtualAnchorMinutes + elapsedRealMs / CONFIG.realMsPerGameMinute;
+}
 
-    if(percent > 100)
-        percent = 100;
-
-    xpBar.style.width = percent + "%";
-    document.querySelector("h1").textContent = t("heading");
-    document.getElementById("pageTitle").textContent = "Football Bet";
+function setVirtualMinutes(minutes) {
+    state.virtualAnchorMinutes = minutes;
+    state.realAnchorMs = performance.now();
     saveGame();
-
 }
 
-function showMessage(text, lose = false, variant = "neutral"){
+function formatVirtualTime(totalMinutes, includeDay = false) {
+    const absolute = Math.floor(totalMinutes);
+    const day = Math.floor(absolute / 1440) + 1;
+    const withinDay = ((absolute % 1440) + 1440) % 1440;
+    const hours = Math.floor(withinDay / 60);
+    const minutes = withinDay % 60;
+    const clock = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    return includeDay ? `${t("day")} ${day} · ${clock}` : clock;
+}
 
-    let popup = document.querySelector(".popup");
+function updateClock() {
+    const nowVirtual = getVirtualMinutes();
+    elements.gameClock.textContent = formatVirtualTime(nowVirtual);
+    elements.gameDay.textContent = `${t("day")} ${Math.floor(nowVirtual / 1440) + 1}`;
 
-    if(!popup){
+    const remaining = Math.max(0, (state.nextSpawnAtMs - performance.now()) / 1000);
+    elements.nextEventCountdown.textContent = t("nextEventIn", { seconds: remaining.toFixed(1).replace(".", ",") });
 
-        popup = document.createElement("div");
-        popup.className = "popup";
-        document.body.appendChild(popup);
+    processEvents(nowVirtual);
+}
 
+function updatePlayerUI() {
+    elements.money.textContent = `💰 ${formatMoney(state.money)} ₴`;
+    elements.level.textContent = `⭐ ${t("level")} ${state.level}`;
+    elements.xpBar.style.width = `${Math.min(100, (state.xp / state.needXP) * 100)}%`;
+    elements.openEventsCount.textContent = String([...state.events.values()].filter(event => event.status !== "settled").length);
+    saveGame();
+}
+
+function addXP(amount) {
+    state.xp += amount;
+    while (state.xp >= state.needXP) {
+        state.xp -= state.needXP;
+        state.level += 1;
+        state.needXP += 50;
     }
-
-    popup.innerHTML = text;
-    popup.classList.remove("lose", "win", "draw");
-
-    if(lose)
-        popup.classList.add("lose");
-    else if(variant === "win")
-        popup.classList.add("win");
-    else if(variant === "draw")
-        popup.classList.add("draw");
-
-    popup.style.display = "block";
-
-    clearTimeout(popup.timer);
-
-    popup.timer = setTimeout(() => {
-        popup.style.display = "none";
-    }, 3000);
-
 }
 
-function addXP(value){
-
-    xp += value;
-
-    while(xp >= needXP){
-
-        xp -= needXP;
-        level++;
-        needXP += 50;
-        showMessage(t("newLevel", { level }), false, "neutral");
-
-    }
-
+function toast(message, variant = "neutral") {
+    elements.toast.textContent = message;
+    elements.toast.className = `toast show ${variant}`;
+    clearTimeout(elements.toast.hideTimer);
+    elements.toast.hideTimer = setTimeout(() => {
+        elements.toast.className = "toast";
+    }, 2600);
 }
 
-function resetPlayer(){
-
-    money = 100;
-    level = 0;
-    xp = 0;
-    needXP = 100;
-    passiveRate = 1;
-    passiveLevel = 0;
-    lastSeen = Date.now();
-
-    update();
-    renderUpgrades();
-
-}
-
-function disableButtons(){
-
-    document.querySelectorAll(".bet").forEach(btn => {
-        btn.disabled = true;
+function translateStaticUI() {
+    $$('[data-i18n]').forEach(node => {
+        const key = node.dataset.i18n;
+        if (translations[state.lang]?.[key]) node.textContent = t(key);
     });
-
+    document.documentElement.lang = state.lang;
+    elements.langSwitcher.value = state.lang;
+    document.title = state.lang === "uk" ? "Sport Arena — симулятор" : "Sport Arena — simulator";
 }
 
-function enableButtons(){
-
-    document.querySelectorAll(".bet").forEach(btn => {
-        const card = btn.closest(".match");
-
-        if(card && card.selectedIndex !== undefined && Number(btn.dataset.optionIndex) === card.selectedIndex){
-            btn.disabled = true;
-        }else{
-            btn.disabled = false;
-        }
-
-    });
-
-}
-
-function getCoef(button){
-
-    return Number(
-        button.innerText
-            .replace(",", ".")
-            .split("—")[1]
-            .replace("x", "")
-            .trim()
-    );
-
-}
-
-function getChance(coef){
-
-    let chance = 1 / coef;
-
-    if(chance > 0.8)
-        chance = 0.8;
-
-    if(chance < 0.15)
-        chance = 0.15;
-
-    return chance;
-
-}
-
-function parseBetAmount(value){
-
-    const cleaned = String(value).replace(/[^\d,.-]/g, "").replace(/,/g, ".");
-    const number = Number(cleaned);
-
-    return Number.isFinite(number) ? number : NaN;
-
-}
-
-function getRandomTime(){
-
-    const hours = [6, 9, 12, 13, 15, 16, 18, 19, 20, 21, 22, 23, 1, 3];
-    const minutes = [0, 15, 30, 45];
-    const dayLabel = Math.random() < 0.6 ? t("today") : t("tomorrow");
-
-    const hour = hours[Math.floor(Math.random() * hours.length)];
-    const minute = minutes[Math.floor(Math.random() * minutes.length)];
-
-    return `${dayLabel} • ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-
-}
-
-function getSportTheme(eventData){
-
-    const themes = {
-        football: { icon: "⚽", names: { uk: t("football"), en: t("football") } },
-        basketball: { icon: "🏀", names: { uk: t("basketball"), en: t("basketball") } },
-        formula: { icon: "🏎️", names: { uk: t("formula"), en: t("formula") } },
-        tennis: { icon: "🎾", names: { uk: t("tennis"), en: t("tennis") } },
-        hockey: { icon: "🏒", names: { uk: t("hockey"), en: t("hockey") } },
-        boxing: { icon: "🥊", names: { uk: t("boxing"), en: t("boxing") } },
-        volleyball: { icon: "🏐", names: { uk: t("volleyball"), en: t("volleyball") } }
-    };
-
-    const theme = themes[eventData.sport] || themes.football;
-    return { icon: theme.icon, name: theme.names[currentLang] };
-
-}
-
-function renderPreview(eventData){
-
-    const theme = getSportTheme(eventData);
-
-    let visual = "";
-
-    if(eventData.sport === "football"){
-        visual = `<div class="visual-stage football"><div class="goal-post left"></div><div class="goal-post right"></div><div class="ball"></div></div>`;
-    }else if(eventData.sport === "basketball"){
-        visual = `<div class="visual-stage basketball"><div class="backboard"></div><div class="ring"></div><div class="basket-ball"></div></div>`;
-    }else if(eventData.sport === "formula"){
-        visual = `<div class="visual-stage formula"><div class="track"></div><div class="car"></div></div>`;
-    }else if(eventData.sport === "tennis"){
-        visual = `<div class="visual-stage tennis"><div class="court"></div><div class="ball"></div></div>`;
-    }else if(eventData.sport === "hockey"){
-        visual = `<div class="visual-stage hockey"><div class="rink"></div><div class="puck"></div></div>`;
-    }else{
-        visual = `<div class="visual-stage football"><div class="goal-post left"></div><div class="goal-post right"></div><div class="ball"></div></div>`;
-    }
-
-    return `
-        <div class="match-preview">
-            ${visual}
-        </div>
-        <div class="match-footer">
-            <span class="match-hint">${t("previewHint", { icon: theme.icon, name: theme.name })}</span>
-            <span class="result-pill">⚡ ${t("liveAnimation")}</span>
+function renderUpgrades() {
+    const cost = 50 + state.passiveLevel * 25;
+    elements.upgradePanel.innerHTML = `
+        <div class="panel-title-row"><h2>${t("incomeUpgrades")}</h2><span class="income-chip">+${state.passiveRate} ${t("perSecond")}</span></div>
+        <div class="upgrade-row">
+            <div><strong>${t("income")}</strong><span>${t("level")} ${state.passiveLevel}</span></div>
+            <button id="buyUpgradeBtn" class="secondary-btn" type="button">${t("upgrade")}<small>${t("upgradeCost", { cost })}</small></button>
         </div>
     `;
-
+    $("#buyUpgradeBtn").addEventListener("click", () => buyUpgrade(cost));
 }
 
-function getRandomEvent(){
+function buyUpgrade(cost) {
+    if (state.money < cost) {
+        toast(t("notEnough"), "lose");
+        return;
+    }
+    state.money = roundMoney(state.money - cost);
+    state.passiveLevel += 1;
+    state.passiveRate += 1;
+    updatePlayerUI();
+    renderUpgrades();
+}
 
-    const events = [
-        {
-            sport: "football",
-            titleUk: "🇪🇸 Реал Мадрид vs Барселона",
-            titleEn: "🇪🇸 Real Madrid vs Barcelona",
-            time: getRandomTime(),
-            options: [
-                { labelUk: "1", labelEn: "1", odds: 2.10 },
-                { labelUk: "Нічия", labelEn: "Draw", odds: 3.40 },
-                { labelUk: "2", labelEn: "2", odds: 2.80 }
-            ]
-        },
-        {
-            sport: "basketball",
-            titleUk: "🏀 Лос-Анджелес Лейкерс vs Бостон Селтікс",
-            titleEn: "🏀 Los Angeles Lakers vs Boston Celtics",
-            time: getRandomTime(),
-            options: [
-                { labelUk: "Лейкерс", labelEn: "Lakers", odds: 1.85 },
-                { labelUk: "Селтікс", labelEn: "Celtics", odds: 1.95 }
-            ]
-        },
-        {
-            sport: "formula",
-            titleUk: "🏎️ Формула 1 — Гран-Прі Монако",
-            titleEn: "🏎️ Formula 1 — Monaco GP",
-            time: getRandomTime(),
-            options: [
-                { labelUk: "Водій: Верстаппен", labelEn: "Driver: Verstappen", odds: 4.60 },
-                { labelUk: "Команда: Red Bull", labelEn: "Team: Red Bull", odds: 2.20 },
-                { labelUk: "Водій: Норріс", labelEn: "Driver: Norris", odds: 4.10 }
-            ]
-        },
-        {
-            sport: "tennis",
-            titleUk: "🎾 Новак Джоковіч vs Карлос Алькарас",
-            titleEn: "🎾 Novak Djokovic vs Carlos Alcaraz",
-            time: getRandomTime(),
-            options: [
-                { labelUk: "Джоковіч", labelEn: "Djokovic", odds: 2.15 },
-                { labelUk: "Алькарас", labelEn: "Alcaraz", odds: 1.95 }
-            ]
-        },
-        {
-            sport: "hockey",
-            titleUk: "🏒 Едмонтон Ойлерс vs Торонто Мейпл Ліфс",
-            titleEn: "🏒 Edmonton Oilers vs Toronto Maple Leafs",
-            time: getRandomTime(),
-            options: [
-                { labelUk: "Ойлерс", labelEn: "Oilers", odds: 2.10 },
-                { labelUk: "Мейпл Ліфс", labelEn: "Maple Leafs", odds: 2.30 }
-            ]
-        },
-        {
-            sport: "boxing",
-            titleUk: "🥊 Олександр Усик vs Тайсон Ф'юрі",
-            titleEn: "🥊 Oleksandr Usyk vs Tyson Fury",
-            time: getRandomTime(),
-            options: [
-                { labelUk: "Усик", labelEn: "Usyk", odds: 2.35 },
-                { labelUk: "Ф'юрі", labelEn: "Fury", odds: 2.10 }
-            ]
-        },
-        {
-            sport: "volleyball",
-            titleUk: "🏐 Зеніт vs Перуджа",
-            titleEn: "🏐 Zenit vs Perugia",
-            time: getRandomTime(),
-            options: [
-                { labelUk: "Зеніт", labelEn: "Zenit", odds: 1.90 },
-                { labelUk: "Перуджа", labelEn: "Perugia", odds: 2.05 }
-            ]
+function createEvent() {
+    const template = eventTemplates[Math.floor(Math.random() * eventTemplates.length)];
+    const teams = state.lang === "uk" ? template.teamsUk : template.teamsEn;
+    const options = template.draw
+        ? [
+            { key: "a", label: teams[0], odds: template.odds[0] },
+            { key: "draw", label: t("drawOutcome"), odds: template.odds[1] },
+            { key: "b", label: teams[1], odds: template.odds[2] }
+        ]
+        : teams.map((team, index) => ({ key: String.fromCharCode(97 + index), label: team, odds: template.odds[index] }));
+
+    state.eventCounter += 1;
+    const nowVirtual = getVirtualMinutes();
+    const startDelayMinutes = 45 + Math.floor(Math.random() * 76);
+
+    return {
+        id: `event-${Date.now()}-${state.eventCounter}`,
+        sport: template.sport,
+        teamsUk: template.teamsUk,
+        teamsEn: template.teamsEn,
+        options,
+        startAt: nowVirtual + startDelayMinutes,
+        status: "open",
+        bet: null,
+        actualIndex: null,
+        createdAt: performance.now()
+    };
+}
+
+function localizeEvent(event) {
+    const templateTeams = state.lang === "uk" ? event.teamsUk : event.teamsEn;
+    event.options.forEach((option, index) => {
+        if (option.key === "draw") option.label = t("drawOutcome");
+        else option.label = templateTeams[index > 1 && event.options.some(item => item.key === "draw") ? index - 1 : index] ?? option.label;
+    });
+    if (event.bet) event.bet.label = event.options[event.bet.optionIndex].label;
+}
+
+function sportName(sport) {
+    return t(sport);
+}
+
+function sportIcon(sport) {
+    return ({ football: "⚽", basketball: "🏀", formula: "🏎️", tennis: "🎾", hockey: "🏒", boxing: "🥊", volleyball: "🏐" })[sport] || "🏟️";
+}
+
+function eventTitle(event) {
+    const teams = state.lang === "uk" ? event.teamsUk : event.teamsEn;
+    if (event.sport === "formula") return `${sportIcon(event.sport)} ${teams.join(" · ")}`;
+    return `${sportIcon(event.sport)} ${teams.join(" vs ")}`;
+}
+
+function getNormalizedProbabilities(options) {
+    const raw = options.map(option => 1 / option.odds);
+    const sum = raw.reduce((total, value) => total + value, 0);
+    return raw.map(value => value / sum);
+}
+
+function chooseOutcome(event) {
+    const probabilities = getNormalizedProbabilities(event.options);
+    let roll = Math.random();
+    for (let index = 0; index < probabilities.length; index += 1) {
+        roll -= probabilities[index];
+        if (roll <= 0) return index;
+    }
+    return probabilities.length - 1;
+}
+
+function renderSportVisual(event) {
+    const outcomeKey = event.actualIndex === null ? "" : event.options[event.actualIndex].key;
+    const liveClass = event.status === "live" ? ` is-live outcome-${outcomeKey}` : "";
+    const settledClass = event.status === "settled" ? ` is-settled outcome-${outcomeKey}` : "";
+
+    if (event.sport === "football") {
+        return `<div class="visual-stage football${liveClass}${settledClass}">
+            <div class="field-line"></div><div class="goal goal-a"><span>A</span></div><div class="goal goal-b"><span>B</span></div>
+            <div class="sport-ball">⚽</div><div class="impact"></div>
+        </div>`;
+    }
+    if (event.sport === "basketball") {
+        return `<div class="visual-stage basketball${liveClass}${settledClass}">
+            <div class="hoop hoop-a"><span>A</span></div><div class="hoop hoop-b"><span>B</span></div><div class="sport-ball">🏀</div>
+        </div>`;
+    }
+    if (event.sport === "formula") {
+        return `<div class="visual-stage formula${liveClass}${settledClass}">
+            ${event.options.map((option, index) => `<div class="race-lane"><span>${option.label}</span><div class="race-car ${event.actualIndex === index ? "winner" : ""}">🏎️</div></div>`).join("")}
+        </div>`;
+    }
+    if (event.sport === "tennis") {
+        return `<div class="visual-stage tennis${liveClass}${settledClass}"><div class="court-side side-a">A</div><div class="net"></div><div class="court-side side-b">B</div><div class="sport-ball">🎾</div></div>`;
+    }
+    if (event.sport === "hockey") {
+        return `<div class="visual-stage hockey${liveClass}${settledClass}"><div class="ice-line"></div><div class="goal goal-a"><span>A</span></div><div class="goal goal-b"><span>B</span></div><div class="puck"></div></div>`;
+    }
+    if (event.sport === "boxing") {
+        return `<div class="visual-stage boxing${liveClass}${settledClass}"><div class="fighter fighter-a">🥊<span>A</span></div><div class="ring-center">VS</div><div class="fighter fighter-b">🥊<span>B</span></div><div class="punch-flash">💥</div></div>`;
+    }
+    return `<div class="visual-stage volleyball${liveClass}${settledClass}"><div class="court-side side-a">A</div><div class="net"></div><div class="court-side side-b">B</div><div class="sport-ball">🏐</div></div>`;
+}
+
+function statusMarkup(event) {
+    const now = getVirtualMinutes();
+    if (event.status === "open") {
+        const realSeconds = Math.max(0, (event.startAt - now) * CONFIG.realMsPerGameMinute / 1000);
+        return `<span class="status-pill open">⏳ ${t("startsIn", { seconds: realSeconds.toFixed(1).replace(".", ",") })}</span>`;
+    }
+    if (event.status === "live") return `<span class="status-pill live"><i></i>${t("live")}</span>`;
+    return `<span class="status-pill settled">✓ ${t("finished")}</span>`;
+}
+
+function resultMarkup(event) {
+    if (event.status !== "settled") {
+        if (!event.bet) return `<span class="bet-summary muted">${t("noBet")}</span>`;
+        return `<span class="bet-summary">${t("yourBet")}: <b>${event.bet.label}</b> · ${formatMoney(event.bet.amount)} ₴</span>`;
+    }
+
+    const actual = event.options[event.actualIndex];
+    const won = event.bet && event.bet.optionIndex === event.actualIndex;
+    const outcomeText = actual.key === "draw" ? t("resultDraw") : t("resultTeam", { team: actual.label });
+    const betText = !event.bet
+        ? t("noBet")
+        : won
+            ? `${t("winMessage")} · ${t("won", { amount: formatMoney(event.bet.payout) })}`
+            : `${t("loseMessage")} · ${t("lost")}`;
+
+    return `<div class="result-box ${event.bet ? (won ? "win" : "lose") : "neutral"}"><strong>${outcomeText}</strong><span>${betText}</span></div>`;
+}
+
+function renderEvent(event) {
+    localizeEvent(event);
+    let card = document.getElementById(event.id);
+    if (!card) {
+        card = document.createElement("article");
+        card.id = event.id;
+        card.className = "match-card entering";
+        elements.eventsList.prepend(card);
+        setTimeout(() => card.classList.remove("entering"), 500);
+    }
+
+    const probabilities = getNormalizedProbabilities(event.options);
+    card.className = `match-card status-${event.status}${event.bet ? " has-bet" : ""}`;
+    card.innerHTML = `
+        <div class="card-head">
+            <div><span class="sport-badge">${sportIcon(event.sport)} ${sportName(event.sport)}</span><h3>${eventTitle(event)}</h3></div>
+            <div class="event-time"><span>${formatVirtualTime(event.startAt, true)}</span>${statusMarkup(event)}</div>
+        </div>
+        ${renderSportVisual(event)}
+        <div class="odds-grid">
+            ${event.options.map((option, index) => {
+                const selected = event.bet?.optionIndex === index;
+                const disabled = event.status !== "open" || Boolean(event.bet);
+                return `<button class="odd-button${selected ? " selected" : ""}" type="button" data-event-id="${event.id}" data-option-index="${index}" ${disabled ? "disabled" : ""}>
+                    <span>${option.label}</span><strong>${option.odds.toFixed(2)}×</strong><small>${t("fairChance", { chance: Math.round(probabilities[index] * 100) })}</small>
+                </button>`;
+            }).join("")}
+        </div>
+        <div class="card-footer">${resultMarkup(event)}</div>
+    `;
+
+    $$(".odd-button", card).forEach(button => button.addEventListener("click", () => openBetModal(event, Number(button.dataset.optionIndex))));
+}
+
+function renderAllEvents() {
+    [...state.events.values()]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .forEach(renderEvent);
+    updatePlayerUI();
+}
+
+function addEvent(notify = false) {
+    if (state.events.size >= CONFIG.maxActiveEvents) {
+        const removable = [...state.events.values()].find(event => event.status === "settled");
+        if (removable) removeEvent(removable.id);
+        else return;
+    }
+    const event = createEvent();
+    state.events.set(event.id, event);
+    renderEvent(event);
+    updatePlayerUI();
+    if (notify) toast(t("newEvent"), "win");
+}
+
+function removeEvent(eventId) {
+    state.events.delete(eventId);
+    document.getElementById(eventId)?.remove();
+    updatePlayerUI();
+}
+
+function processEvents(nowVirtual) {
+    state.events.forEach(event => {
+        if (event.status === "open" && nowVirtual >= event.startAt) startEvent(event);
+        else if (event.status === "open") updateEventStatusOnly(event);
+    });
+}
+
+function updateEventStatusOnly(event) {
+    const card = document.getElementById(event.id);
+    const status = card?.querySelector(".event-time .status-pill");
+    if (!status) return;
+    const realSeconds = Math.max(0, (event.startAt - getVirtualMinutes()) * CONFIG.realMsPerGameMinute / 1000);
+    status.innerHTML = `⏳ ${t("startsIn", { seconds: realSeconds.toFixed(1).replace(".", ",") })}`;
+}
+
+function startEvent(event) {
+    if (event.status !== "open") return;
+    event.status = "live";
+    event.actualIndex = chooseOutcome(event);
+    renderEvent(event);
+    toast(t("eventStarted"));
+
+    setTimeout(() => settleEvent(event), CONFIG.liveAnimationMs);
+}
+
+function settleEvent(event) {
+    if (event.status !== "live") return;
+    event.status = "settled";
+
+    if (event.bet) {
+        const won = event.bet.optionIndex === event.actualIndex;
+        if (won) {
+            event.bet.payout = roundMoney(event.bet.amount * event.bet.odds);
+            state.money = roundMoney(state.money + event.bet.payout);
+            addXP(25);
+            toast(t("won", { amount: formatMoney(event.bet.payout) }), "win");
+            launchConfetti();
+        } else {
+            event.bet.payout = 0;
+            addXP(8);
+            toast(t("lost"), "lose");
         }
+    }
+
+    renderEvent(event);
+    updatePlayerUI();
+    setTimeout(() => removeEvent(event.id), CONFIG.settledEventLifetimeMs);
+}
+
+function openBetModal(event, optionIndex) {
+    if (event.status !== "open") {
+        toast(t("eventClosed"), "lose");
+        return;
+    }
+    if (event.bet) {
+        toast(t("alreadyBet"), "lose");
+        return;
+    }
+
+    const option = event.options[optionIndex];
+    state.pendingBet = { eventId: event.id, optionIndex };
+    elements.betModalTitle.textContent = eventTitle(event);
+    elements.betModalPick.textContent = `${option.label} · ${option.odds.toFixed(2)}×`;
+    elements.betAmount.value = String(Math.min(10, Math.floor(state.money)) || 1);
+    updatePotentialPayout();
+    openModal(elements.betModal);
+    setTimeout(() => elements.betAmount.focus(), 50);
+}
+
+function updatePotentialPayout() {
+    if (!state.pendingBet) return;
+    const event = state.events.get(state.pendingBet.eventId);
+    if (!event) return;
+    const amount = Number(elements.betAmount.value);
+    const odds = event.options[state.pendingBet.optionIndex].odds;
+    const payout = Number.isFinite(amount) && amount > 0 ? amount * odds : 0;
+    elements.potentialPayout.textContent = `${formatMoney(payout)} ₴`;
+}
+
+function confirmBet() {
+    if (!state.pendingBet) return;
+    const event = state.events.get(state.pendingBet.eventId);
+    if (!event || event.status !== "open") {
+        closeModal(elements.betModal);
+        toast(t("eventClosed"), "lose");
+        return;
+    }
+
+    const amount = roundMoney(Number(elements.betAmount.value));
+    if (!Number.isFinite(amount) || amount <= 0) {
+        toast(t("invalidAmount"), "lose");
+        return;
+    }
+    if (amount > state.money) {
+        toast(t("notEnough"), "lose");
+        return;
+    }
+
+    const option = event.options[state.pendingBet.optionIndex];
+    state.money = roundMoney(state.money - amount);
+    event.bet = {
+        optionIndex: state.pendingBet.optionIndex,
+        label: option.label,
+        odds: option.odds,
+        amount,
+        payout: 0
+    };
+    state.pendingBet = null;
+    closeModal(elements.betModal);
+    renderEvent(event);
+    updatePlayerUI();
+    toast(t("betAccepted", { amount: formatMoney(amount) }), "win");
+}
+
+function openModal(modal) {
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+}
+
+function closeModal(modal) {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    if (!$(".modal.open")) document.body.classList.remove("modal-open");
+}
+
+function setLanguage(lang) {
+    state.lang = lang;
+    translateStaticUI();
+    renderUpgrades();
+    renderAllEvents();
+    updateClock();
+}
+
+function spinWheel() {
+    if (state.money < CONFIG.wheelCost) {
+        toast(t("notEnough"), "lose");
+        return;
+    }
+
+    state.money = roundMoney(state.money - CONFIG.wheelCost);
+    updatePlayerUI();
+    elements.spinWheel.disabled = true;
+    elements.miniWheel.classList.add("spinning");
+    toast(t("wheelSpinning"));
+
+    const rewards = [
+        { type: "money", value: 100, weight: 18 },
+        { type: "money", value: 250, weight: 8 },
+        { type: "money", value: 500, weight: 2 },
+        { type: "xp", value: 30, weight: 25 },
+        { type: "xp", value: 60, weight: 14 },
+        { type: "lose", value: 20, weight: 33 }
     ];
 
-    const baseEvent = events[Math.floor(Math.random() * events.length)];
-    const title = currentLang === "uk" ? baseEvent.titleUk : baseEvent.titleEn;
-    const options = baseEvent.options.map(option => ({
-        label: currentLang === "uk" ? option.labelUk : option.labelEn,
-        odds: option.odds
+    setTimeout(() => {
+        const reward = weightedPick(rewards);
+        if (reward.type === "money") {
+            state.money = roundMoney(state.money + reward.value);
+            toast(t("wheelMoney", { amount: reward.value }), "win");
+        } else if (reward.type === "xp") {
+            addXP(reward.value);
+            toast(t("wheelXp", { amount: reward.value }), "win");
+        } else {
+            const loss = Math.min(reward.value, state.money);
+            state.money = roundMoney(state.money - loss);
+            toast(t("wheelLose", { amount: loss }), "lose");
+        }
+        elements.miniWheel.classList.remove("spinning");
+        elements.spinWheel.disabled = false;
+        updatePlayerUI();
+    }, 1400);
+}
+
+function weightedPick(items) {
+    const total = items.reduce((sum, item) => sum + item.weight, 0);
+    let roll = Math.random() * total;
+    for (const item of items) {
+        roll -= item.weight;
+        if (roll <= 0) return item;
+    }
+    return items[items.length - 1];
+}
+
+function launchConfetti() {
+    const layer = document.createElement("div");
+    layer.className = "confetti-layer";
+    for (let index = 0; index < 34; index += 1) {
+        const piece = document.createElement("i");
+        piece.style.setProperty("--x", `${Math.random() * 100}vw`);
+        piece.style.setProperty("--delay", `${Math.random() * 0.5}s`);
+        piece.style.setProperty("--spin", `${360 + Math.random() * 720}deg`);
+        layer.appendChild(piece);
+    }
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 2600);
+}
+
+function updatePassiveIncome(now) {
+    const elapsedSeconds = Math.floor((now - state.lastPassiveTick) / 1000);
+    if (elapsedSeconds <= 0) return;
+    state.lastPassiveTick += elapsedSeconds * 1000;
+    state.money = roundMoney(state.money + elapsedSeconds * state.passiveRate);
+    updatePlayerUI();
+}
+
+function handleSpawning(now) {
+    if (now < state.nextSpawnAtMs) return;
+    addEvent(true);
+    state.nextSpawnAtMs += CONFIG.eventSpawnMs;
+    if (state.nextSpawnAtMs < now) state.nextSpawnAtMs = now + CONFIG.eventSpawnMs;
+}
+
+function bindEvents() {
+    elements.langSwitcher.addEventListener("change", event => setLanguage(event.target.value));
+    elements.spinWheel.addEventListener("click", spinWheel);
+    elements.addDemoEventBtn.addEventListener("click", () => addEvent(true));
+    elements.setClockBtn.addEventListener("click", () => {
+        elements.clockInput.value = formatVirtualTime(getVirtualMinutes());
+        openModal(elements.clockModal);
+    });
+    elements.confirmClockBtn.addEventListener("click", () => {
+        const [hours, minutes] = elements.clockInput.value.split(":").map(Number);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
+        const currentDay = Math.floor(getVirtualMinutes() / 1440);
+        setVirtualMinutes(currentDay * 1440 + hours * 60 + minutes);
+        state.events.forEach(event => {
+            if (event.status === "open") event.startAt = getVirtualMinutes() + 45 + Math.floor(Math.random() * 76);
+        });
+        renderAllEvents();
+        closeModal(elements.clockModal);
+        toast(t("clockSaved"), "win");
+    });
+    elements.betAmount.addEventListener("input", updatePotentialPayout);
+    elements.confirmBetBtn.addEventListener("click", confirmBet);
+
+    $$("[data-close-modal]").forEach(node => node.addEventListener("click", () => {
+        state.pendingBet = null;
+        closeModal(elements.betModal);
+    }));
+    $$("[data-close-clock]").forEach(node => node.addEventListener("click", () => closeModal(elements.clockModal)));
+    $$(".quick-amounts button").forEach(button => button.addEventListener("click", () => {
+        elements.betAmount.value = button.dataset.amount === "max" ? String(Math.max(1, Math.floor(state.money))) : button.dataset.amount;
+        updatePotentialPayout();
     }));
 
-    return { ...baseEvent, title, options, time: baseEvent.time };
-
-}
-
-function resolveEventResult(eventData, selectedIndex, userWon){
-
-    const sport = eventData.sport;
-
-    if(sport === "football"){
-        if(userWon)
-            return { variant: "win", text: currentLang === "uk" ? t("outcomeFootballWin") : t("outcomeFootballWin") };
-        if(selectedIndex === 1)
-            return { variant: "draw", text: currentLang === "uk" ? t("outcomeFootballDraw") : t("outcomeFootballDraw") };
-        return { variant: "lose", text: currentLang === "uk" ? t("outcomeFootballLose") : t("outcomeFootballLose") };
-    }
-
-    if(sport === "basketball"){
-        if(userWon)
-            return { variant: "win", text: currentLang === "uk" ? t("outcomeBasketballWin") : t("outcomeBasketballWin") };
-        return { variant: "lose", text: currentLang === "uk" ? t("outcomeBasketballLose") : t("outcomeBasketballLose") };
-    }
-
-    if(sport === "formula"){
-        if(userWon)
-            return { variant: "win", text: currentLang === "uk" ? t("outcomeFormulaWin") : t("outcomeFormulaWin") };
-        return { variant: "lose", text: currentLang === "uk" ? t("outcomeFormulaLose") : t("outcomeFormulaLose") };
-    }
-
-    if(sport === "tennis"){
-        if(userWon)
-            return { variant: "win", text: currentLang === "uk" ? t("outcomeTennisWin") : t("outcomeTennisWin") };
-        return { variant: "lose", text: currentLang === "uk" ? t("outcomeTennisLose") : t("outcomeTennisLose") };
-    }
-
-    if(sport === "hockey"){
-        if(userWon)
-            return { variant: "win", text: currentLang === "uk" ? t("outcomeHockeyWin") : t("outcomeHockeyWin") };
-        return { variant: "lose", text: currentLang === "uk" ? t("outcomeHockeyLose") : t("outcomeHockeyLose") };
-    }
-
-    if(sport === "boxing"){
-        if(userWon)
-            return { variant: "win", text: currentLang === "uk" ? t("outcomeBoxingWin") : t("outcomeBoxingWin") };
-        return { variant: "lose", text: currentLang === "uk" ? t("outcomeBoxingLose") : t("outcomeBoxingLose") };
-    }
-
-    if(sport === "volleyball"){
-        if(userWon)
-            return { variant: "win", text: currentLang === "uk" ? t("outcomeVolleyballWin") : t("outcomeVolleyballWin") };
-        return { variant: "lose", text: currentLang === "uk" ? t("outcomeVolleyballLose") : t("outcomeVolleyballLose") };
-    }
-
-    return { variant: userWon ? "win" : "lose", text: t("defaultOutcome") };
-
-}
-
-function renderCard(card, eventData){
-
-    card.eventData = eventData;
-    card.className = `match new${card.resultVariant ? ` result-${card.resultVariant}` : ""}`;
-    card.dataset.eventId = card.dataset.eventId || eventId;
-
-    const selectedIndex = card.selectedIndex;
-    const selectedLabel = card.selectedLabel || "";
-    const resultVariant = card.resultVariant || "";
-    const resultText = card.resultText || "";
-
-    card.innerHTML = `
-        <div class="match-main">
-            <div class="match-info">
-                <div class="match-top">
-                    <div class="sport-badge">${getSportTheme(eventData).icon} ${getSportTheme(eventData).name}</div>
-                    <div class="time-pill">${eventData.time}</div>
-                </div>
-                <div class="teams">${eventData.title}</div>
-                ${renderPreview(eventData)}
-            </div>
-            <div class="odds">
-                ${eventData.options.map((option, index) => {
-                    const isSelected = selectedIndex === index;
-                    const selectedClass = isSelected ? " selected" : "";
-                    const disabledAttr = isSelected || selectedIndex !== undefined ? " disabled" : "";
-                    return `<button class="bet${selectedClass}" data-option-index="${index}"${disabledAttr}>${option.label} — ${option.odds.toFixed(2).replace(".", ",")}x</button>`;
-                }).join("")}
-            </div>
-        </div>
-        <div class="bet-status">
-            <span class="pick-chip">${selectedLabel ? `${t("yourPick")}: ${selectedLabel}` : `${t("yourPick")}: —`}</span>
-            <span class="result-pill ${resultVariant ? resultVariant : ""}">${resultText || `⚡ ${t("liveAnimation")}`}</span>
-        </div>
-    `;
-
-    attachBetHandlers(card, eventData);
-
-}
-
-function updateCardResult(card, result){
-
-    card.resultVariant = result.variant;
-    card.resultText = result.text;
-    renderCard(card, card.eventData);
-
-}
-
-function flashButton(button, variant){
-
-    button.classList.remove("betWin", "betLose");
-    button.offsetWidth;
-    button.classList.add(variant === "win" ? "betWin" : "betLose");
-    setTimeout(() => button.classList.remove("betWin", "betLose"), 700);
-
-}
-
-function attachBetHandlers(card, eventData){
-
-    card.querySelectorAll(".bet").forEach(button => {
-
-        button.onclick = function(){
-
-            if(waiting)
-                return;
-
-            const betAmount = parseBetAmount(prompt(t("enterBetAmount")));
-
-            if(isNaN(betAmount) || betAmount <= 0)
-                return;
-
-            if(betAmount > money){
-                showMessage(t("notEnoughMoney"), true, "lose");
-                return;
-            }
-
-            const clickedButton = this;
-            const selectedIndex = Number(clickedButton.dataset.optionIndex);
-
-            card.selectedIndex = selectedIndex;
-            card.selectedLabel = eventData.options[selectedIndex].label;
-            currentButton = clickedButton;
-            currentBet = betAmount;
-            currentCoef = getCoef(clickedButton);
-
-            waiting = true;
-            disableButtons();
-            renderCard(card, eventData);
-            showMessage(t("pending"));
-
-            setTimeout(() => {
-
-                const chance = getChance(currentCoef);
-                const win = Math.random() < chance;
-                const result = resolveEventResult(eventData, selectedIndex, win);
-
-                if(win){
-
-                    const prize = Math.round(currentBet * currentCoef);
-                    money += prize;
-                    addXP(25);
-                    showMessage(t("win", { prize, money }), false, "win");
-
-                }else{
-
-                    money -= currentBet;
-                    addXP(10);
-                    showMessage(t("lose", { bet: currentBet, money }), true, "lose");
-
-                }
-
-                if(money <= 0){
-                    showMessage(t("bankrupt"), true, "lose");
-                    resetPlayer();
-                }
-
-                update();
-                updateCardResult(card, result);
-                flashButton(currentButton, win ? "win" : "lose");
-                enableButtons();
-                waiting = false;
-
-                if(activeEvents.size < 3)
-                    scheduleNextEvent();
-
-            }, 10000);
-
-        };
-
-    });
-
-}
-
-function createEventCard(eventData){
-
-    eventId++;
-    const card = document.createElement("div");
-    card.className = "match new";
-    card.dataset.eventId = eventId;
-    card.selectedIndex = undefined;
-    card.selectedLabel = "";
-    card.resultVariant = "";
-    card.resultText = "";
-
-    renderCard(card, eventData);
-    return card;
-
-}
-
-function addEvent(eventData, notify = false){
-
-    const card = createEventCard(eventData);
-    eventsListEl.appendChild(card);
-    activeEvents.set(card.dataset.eventId, card);
-
-    const timer = setTimeout(() => {
-        removeEvent(card);
-        if(activeEvents.size < 3)
-            scheduleNextEvent();
-    }, 90000 + Math.random() * 30000);
-
-    card.expireTimer = timer;
-
-    if(notify)
-        showMessage(t("newEvent"));
-
-}
-
-function removeEvent(card){
-
-    if(!card)
-        return;
-
-    if(card.expireTimer)
-        clearTimeout(card.expireTimer);
-
-    activeEvents.delete(card.dataset.eventId);
-    card.remove();
-
-}
-
-function scheduleNextEvent(){
-
-    if(nextEventTimer)
-        clearTimeout(nextEventTimer);
-
-    nextEventTimer = setTimeout(() => {
-
-        if(activeEvents.size < 3){
-            addEvent(getRandomEvent(), true);
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            state.pendingBet = null;
+            closeModal(elements.betModal);
+            closeModal(elements.clockModal);
         }
-
-        scheduleNextEvent();
-
-    }, 30000);
-
+        if (event.key === "Enter" && elements.betModal.classList.contains("open")) confirmBet();
+    });
+    window.addEventListener("beforeunload", saveGame);
 }
 
-function renderUpgrades(){
-
-    upgradePanelEl.innerHTML = `
-        <h2>${t("upgradeTitle")}</h2>
-        <div class="upgrade-card">
-            <div>
-                <strong>${t("baseIncome")}</strong><br>
-                <span>+${passiveRate} $/с</span>
-            </div>
-            <div>${t("currentLevel")}: ${passiveLevel}</div>
-        </div>
-        <div class="upgrade-card">
-            <div>
-                <strong>${t("upgradeIncome")}</strong><br>
-                <span>${t("upgradeCost", { cost: 50 + passiveLevel * 20 })}</span>
-            </div>
-            <button class="upgrade-btn" onclick="buyUpgrade()">${t("buy")}</button>
-        </div>
-    `;
-
-}
-
-function buyUpgrade(){
-
-    const cost = 50 + passiveLevel * 20;
-
-    if(money < cost){
-        showMessage(t("upgradeError"), true);
-        return;
-    }
-
-    money -= cost;
-    passiveLevel++;
-    passiveRate++;
-
-    update();
+function init() {
+    translateStaticUI();
     renderUpgrades();
-    showMessage(t("buySuccess", { rate: passiveRate }));
+    bindEvents();
 
-}
+    addEvent();
+    addEvent();
+    addEvent();
+    addEvent();
 
-function setLanguage(lang){
-
-    currentLang = lang;
-    localStorage.setItem("lang", lang);
-    langSwitcherEl.value = lang;
-
-    document.querySelectorAll(".match").forEach(card => {
-        if(card.eventData)
-            renderCard(card, card.eventData);
+    // Розносить перші старти, щоб анімації не запускались одночасно.
+    [...state.events.values()].forEach((event, index) => {
+        event.startAt = getVirtualMinutes() + 35 + index * 28;
+        renderEvent(event);
     });
 
-    update();
-    renderUpgrades();
+    updatePlayerUI();
+    updateClock();
 
+    const loop = now => {
+        updateClock();
+        updatePassiveIncome(now);
+        handleSpawning(now);
+        requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
 }
-
-function init(){
-
-    langSwitcherEl.value = currentLang;
-    langSwitcherEl.addEventListener("change", (event) => setLanguage(event.target.value));
-
-    const now = Date.now();
-    const offlineSeconds = Math.floor((now - lastSeen) / 1000);
-
-    if(offlineSeconds > 0){
-        const offlineGain = offlineSeconds;
-        money += offlineGain;
-        showMessage(t("offlineGain", { gain: offlineGain, seconds: offlineSeconds }));
-    }
-
-    update();
-    renderUpgrades();
-
-    for(let i = 0; i < 3; i++)
-        addEvent(getRandomEvent());
-
-    scheduleNextEvent();
-
-    setInterval(() => {
-        money += passiveRate;
-        update();
-    }, 1000);
-
-}
-
-window.addEventListener("beforeunload", saveGame);
 
 init();
-spinBtn.onclick=spinWheel;

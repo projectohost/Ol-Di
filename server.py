@@ -1,99 +1,35 @@
-from flask import Flask, request, jsonify
-from supabase import create_client
-from dotenv import load_dotenv
-import os
+"""Minimal local server for the Sport Arena demo.
 
-# ====== INIT ======
-load_dotenv()
+Run:
+    pip install -r requirements.txt
+    python server.py
+Then open http://127.0.0.1:5000
+"""
+from pathlib import Path
+from flask import Flask, jsonify, send_from_directory
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+BASE_DIR = Path(__file__).resolve().parent
+app = Flask(__name__, static_folder=None)
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-app = Flask(__name__)
+@app.get("/")
+def index():
+    return send_from_directory(BASE_DIR, "index.html")
 
-# ====== TEST ======
-@app.route("/")
-def home():
-    return "🎮 Game server is running"
 
-# ====== CREATE PLAYER ======
-@app.route("/create_player", methods=["POST"])
-def create_player():
-    data = request.json
-    username = data["username"]
+@app.get("/health")
+def health():
+    return jsonify(status="ok", mode="virtual-credits-demo")
 
-    res = supabase.table("players").insert({
-        "username": username
-    }).execute()
 
-    return jsonify(res.data)
+@app.get("/<path:filename>")
+def assets(filename: str):
+    """Serve only the public files used by the demo."""
+    allowed = {"index.html", "cataloge.html", "main.css", "script.js"}
+    if filename not in allowed:
+        return jsonify(error="not found"), 404
+    return send_from_directory(BASE_DIR, filename)
 
-# ====== GET PLAYER ======
-@app.route("/player/<username>")
-def get_player(username):
 
-    res = supabase.table("players") \
-        .select("*") \
-        .eq("username", username) \
-        .single() \
-        .execute()
-
-    return jsonify(res.data)
-
-# ====== GAME LOGIC ======
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.json
-
-    username = data["username"]
-    bet = data["bet"]
-    win = data["win"]
-
-    player = supabase.table("players") \
-        .select("*") \
-        .eq("username", username) \
-        .single() \
-        .execute().data
-
-    balance = player["balance"]
-    xp = player["xp"]
-    wins = player["wins"]
-    losses = player["losses"]
-    level = player["level"]
-
-    # ====== WIN / LOSS ======
-    if win:
-        balance += bet * 2
-        xp += 25
-        wins += 1
-    else:
-        balance -= bet
-        losses += 1
-
-    # ====== LEVEL SYSTEM ======
-    if xp >= level * 100:
-        level += 1
-        xp = 0
-
-    # ====== UPDATE DB ======
-    supabase.table("players").update({
-        "balance": balance,
-        "xp": xp,
-        "level": level,
-        "wins": wins,
-        "losses": losses
-    }).eq("username", username).execute()
-
-    return jsonify({
-        "balance": balance,
-        "xp": xp,
-        "level": level,
-        "wins": wins,
-        "losses": losses
-    })
-
-# ====== RUN SERVER ======
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True)
