@@ -432,14 +432,51 @@ body.modal-open {
     font-weight: 600
 }
 
+.wheel-wrap {
+    position: relative;
+    width: 170px;
+    height: 170px;
+    margin: 22px auto;
+    display: grid;
+    place-items: center
+}
+
+.wheel-pointer {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 34px solid rgba(255, 207, 77, .95);
+    z-index: 6;
+    filter: drop-shadow(0 0 0 transparent);
+    pointer-events: none
+}
+
+.wheel-pointer::before {
+    content: "";
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff3b0 0%, #ffcf4d 60%, #a96f00 100%);
+    border: 3px solid #7a4b00;
+    box-shadow: 0 0 0 4px rgba(255, 207, 77, .35);
+}
+
 .mini-wheel {
     width: 150px;
     height: 150px;
-    margin: 22px auto;
     border-radius: 50%;
     position: relative;
     border: 8px solid #152a42;
-    background: conic-gradient(#22c77a 0 25%, #338cf3 0 50%, #f6b93b 0 75%, #e65566 0);
+    background: conic-gradient(#22c77a 0 16.66%, #338cf3 0 33.33%, #f6b93b 0 50%, #e65566 0 66.66%, #7c4dff 0 83.33%, #1ec8d7 0);
     box-shadow: inset 0 0 0 4px rgba(255, 255, 255, .22), 0 15px 35px rgba(0, 0, 0, .32);
     transition: transform 1.4s cubic-bezier(.15, .8, .15, 1)
 }
@@ -458,48 +495,52 @@ body.modal-open {
     z-index: 2
 }
 
-.mini-wheel::after {
-    content: "";
-    position: absolute;
-    top: -17px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-top: 20px solid #fff;
-    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .4))
-}
-
 .mini-wheel span {
     position: absolute;
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 900;
-    text-shadow: 0 2px 5px rgba(0, 0, 0, .35)
+    text-shadow: 0 2px 5px rgba(0, 0, 0, .35);
+    color: #fff;
+    letter-spacing: .02em;
+    padding: 2px 5px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .2);
+    backdrop-filter: blur(2px)
 }
 
 .mini-wheel span:nth-child(1) {
-    top: 20px;
-    left: 52px
+    top: 16px;
+    left: 44px
 }
 
 .mini-wheel span:nth-child(2) {
-    right: 19px;
-    top: 63px
+    right: 12px;
+    top: 54px
 }
 
 .mini-wheel span:nth-child(3) {
-    bottom: 20px;
-    left: 51px
+    bottom: 18px;
+    left: 42px
 }
 
 .mini-wheel span:nth-child(4) {
-    left: 22px;
-    top: 62px
+    left: 10px;
+    top: 54px
+}
+
+.mini-wheel span:nth-child(5) {
+    top: 54px;
+    left: 56px
+}
+
+.mini-wheel span:nth-child(6) {
+    bottom: 12px;
+    right: 28px
 }
 
 
-.mini-wheel.spinning::after {
-    transform: rotate(1260deg);
+.mini-wheel.spinning {
+    transform: rotate(0deg);
 }
 
 .upgrade-panel {

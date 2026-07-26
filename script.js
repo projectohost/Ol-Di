@@ -662,8 +662,6 @@ function spinWheel() {
     state.money = roundMoney(state.money - CONFIG.wheelCost);
     updatePlayerUI();
     elements.spinWheel.disabled = true;
-    elements.miniWheel.classList.add("spinning");
-    toast(t("wheelSpinning"));
 
     const rewards = [
         { type: "money", value: 100, weight: 18 },
@@ -673,9 +671,23 @@ function spinWheel() {
         { type: "xp", value: 60, weight: 14 },
         { type: "lose", value: 20, weight: 33 }
     ];
+    const reward = weightedPick(rewards);
+    const sectors = 6;
+    const randomTurns = 5 + Math.floor(Math.random() * 5);
+    const randomOffset = Math.floor(Math.random() * 360);
+    const sectorAngle = 360 / sectors;
+    const landingIndex = (sectors - Math.floor((randomOffset + 360 / sectors / 2) / sectorAngle) % sectors) % sectors;
+    const finalRotation = 360 * randomTurns + randomOffset + 360 - (landingIndex * sectorAngle);
+    const duration = 2.4 + Math.random() * 1.6;
+    const speedMultiplier = 0.15 + Math.random() * 0.1;
+    const normalizedDuration = Math.max(2.8, duration + speedMultiplier);
+
+    elements.miniWheel.style.transition = `transform ${normalizedDuration}s cubic-bezier(.12,.8,.27,1)`;
+    elements.miniWheel.style.transform = `rotate(${finalRotation}deg)`;
+    elements.miniWheel.classList.add("spinning");
+    toast(t("wheelSpinning"));
 
     setTimeout(() => {
-        const reward = weightedPick(rewards);
         if (reward.type === "money") {
             state.money = roundMoney(state.money + reward.value);
             toast(t("wheelMoney", { amount: reward.value }), "win");
@@ -690,7 +702,7 @@ function spinWheel() {
         elements.miniWheel.classList.remove("spinning");
         elements.spinWheel.disabled = false;
         updatePlayerUI();
-    }, 1400);
+    }, duration * 1000);
 }
 
 function weightedPick(items) {
