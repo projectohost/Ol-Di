@@ -434,8 +434,8 @@ body.modal-open {
 
 .wheel-wrap {
     position: relative;
-    width: 170px;
-    height: 170px;
+    width: 190px;
+    height: 190px;
     margin: 22px auto;
     display: grid;
     place-items: center
@@ -476,7 +476,13 @@ body.modal-open {
     border-radius: 50%;
     position: relative;
     border: 8px solid #152a42;
-    background: conic-gradient(#22c77a 0 16.66%, #338cf3 0 33.33%, #f6b93b 0 50%, #e65566 0 66.66%, #7c4dff 0 83.33%, #1ec8d7 0);
+    background: conic-gradient(from -30deg,
+        #22c77a 0deg 60deg,
+        #338cf3 60deg 120deg,
+        #f6b93b 120deg 180deg,
+        #e65566 180deg 240deg,
+        #7c4dff 240deg 300deg,
+        #1ec8d7 300deg 360deg);
     box-shadow: inset 0 0 0 4px rgba(255, 255, 255, .22), 0 15px 35px rgba(0, 0, 0, .32);
     transition: transform 1.4s cubic-bezier(.15, .8, .15, 1)
 }
@@ -497,47 +503,49 @@ body.modal-open {
 
 .mini-wheel span {
     position: absolute;
-    font-size: 10px;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    padding: 3px 7px;
+    font-size: 11px;
     font-weight: 900;
     text-shadow: 0 2px 5px rgba(0, 0, 0, .35);
     color: #fff;
     letter-spacing: .02em;
-    padding: 2px 5px;
+    white-space: nowrap;
     border-radius: 999px;
     background: rgba(0, 0, 0, .2);
-    backdrop-filter: blur(2px)
+    backdrop-filter: blur(2px);
+    transform-origin: center center;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-60px) rotate(calc(-1 * var(--angle)))
 }
 
 .mini-wheel span:nth-child(1) {
-    top: 16px;
-    left: 44px
+    --angle: 0deg
 }
 
 .mini-wheel span:nth-child(2) {
-    right: 12px;
-    top: 54px
+    --angle: 60deg
 }
 
 .mini-wheel span:nth-child(3) {
-    bottom: 18px;
-    left: 42px
+    --angle: 120deg
 }
 
 .mini-wheel span:nth-child(4) {
-    left: 10px;
-    top: 54px
+    --angle: 180deg
 }
 
 .mini-wheel span:nth-child(5) {
-    top: 54px;
-    left: 56px
+    --angle: 240deg
 }
 
 .mini-wheel span:nth-child(6) {
-    bottom: 12px;
-    right: 28px
+    --angle: 300deg
 }
-
 
 .mini-wheel.spinning {
     transform: rotate(0deg);

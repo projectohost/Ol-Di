@@ -674,10 +674,9 @@ function spinWheel() {
     const reward = weightedPick(rewards);
     const sectors = 6;
     const randomTurns = 5 + Math.floor(Math.random() * 5);
-    const randomOffset = Math.floor(Math.random() * 360);
     const sectorAngle = 360 / sectors;
-    const landingIndex = (sectors - Math.floor((randomOffset + 360 / sectors / 2) / sectorAngle) % sectors) % sectors;
-    const finalRotation = 360 * randomTurns + randomOffset + 360 - (landingIndex * sectorAngle);
+    const landingIndex = Math.floor(Math.random() * sectors);
+    const finalRotation = 360 * randomTurns + (360 - landingIndex * sectorAngle) % 360;
     const duration = 2.4 + Math.random() * 1.6;
     const speedMultiplier = 0.15 + Math.random() * 0.1;
     const normalizedDuration = Math.max(2.8, duration + speedMultiplier);
