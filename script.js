@@ -43,6 +43,7 @@ const elements = {
     langSwitcher: $("#langSwitcher"),
     spinWheel: $("#spinWheel"),
     miniWheel: $("#miniWheel"),
+    wheelResult: $("#wheelResult"),
     gameClock: $("#gameClock"),
     gameDay: $("#gameDay"),
     nextEventCountdown: $("#nextEventCountdown"),
@@ -81,6 +82,7 @@ const translations = {
         payout: "Виплата", noBet: "Ставку не зроблено", eventClosed: "Прийом ставок завершено", alreadyBet: "На цю подію вже є ставка",
         invalidAmount: "Введіть коректну суму", newEvent: "Додано новий спортивний захід", clockSaved: "Ігровий час змінено",
         wheelSpinning: "Колесо обертається…", wheelMoney: "+{amount} ₴", wheelXp: "+{amount} XP", wheelLose: "−{amount} ₴",
+        wheelResult: "Випало: {result}",
         football: "Футбол", basketball: "Баскетбол", formula: "Формула 1", tennis: "Теніс", hockey: "Хокей", boxing: "Бокс", volleyball: "Волейбол",
         resultTeam: "Перемога: {team}", resultDraw: "Нічия — м'яч пройшов повз ворота",
         winMessage: "Ви вгадали результат", loseMessage: "Результат не збігся з вашою ставкою",
@@ -103,6 +105,7 @@ const translations = {
         payout: "Payout", noBet: "No bet placed", eventClosed: "Betting is closed", alreadyBet: "A bet already exists for this event",
         invalidAmount: "Enter a valid amount", newEvent: "A new sports event was added", clockSaved: "Game time changed",
         wheelSpinning: "Wheel is spinning…", wheelMoney: "+{amount} ₴", wheelXp: "+{amount} XP", wheelLose: "−{amount} ₴",
+        wheelResult: "Result: {result}",
         football: "Football", basketball: "Basketball", formula: "Formula 1", tennis: "Tennis", hockey: "Hockey", boxing: "Boxing", volleyball: "Volleyball",
         resultTeam: "Winner: {team}", resultDraw: "Draw — the ball missed both goals",
         winMessage: "You predicted the result", loseMessage: "The result did not match your bet",
@@ -663,19 +666,18 @@ function spinWheel() {
     updatePlayerUI();
     elements.spinWheel.disabled = true;
 
-    const rewards = [
-        { type: "money", value: 100, weight: 18 },
-        { type: "money", value: 250, weight: 8 },
-        { type: "money", value: 500, weight: 2 },
-        { type: "xp", value: 30, weight: 25 },
-        { type: "xp", value: 60, weight: 14 },
-        { type: "lose", value: 20, weight: 33 }
-    ];
-    const reward = weightedPick(rewards);
     const sectors = 6;
-    const randomTurns = 5 + Math.floor(Math.random() * 5);
     const sectorAngle = 360 / sectors;
     const landingIndex = Math.floor(Math.random() * sectors);
+    const reward = [
+        { type: "money", value: 100 },
+        { type: "xp", value: 30 },
+        { type: "money", value: 250 },
+        { type: "lose", value: 20 },
+        { type: "money", value: 500 },
+        { type: "xp", value: 60 }
+    ][landingIndex];
+    const randomTurns = 5 + Math.floor(Math.random() * 5);
     const finalRotation = 360 * randomTurns + (360 - landingIndex * sectorAngle) % 360;
     const duration = 2.4 + Math.random() * 1.6;
     const speedMultiplier = 0.15 + Math.random() * 0.1;
@@ -698,20 +700,20 @@ function spinWheel() {
             state.money = roundMoney(state.money - loss);
             toast(t("wheelLose", { amount: loss }), "lose");
         }
+
+        const resultText = reward.type === "money"
+            ? t("wheelMoney", { amount: reward.value })
+            : reward.type === "xp"
+                ? t("wheelXp", { amount: reward.value })
+                : t("wheelLose", { amount: reward.value });
+        if (elements.wheelResult) {
+            elements.wheelResult.textContent = t("wheelResult", { result: resultText });
+        }
+
         elements.miniWheel.classList.remove("spinning");
         elements.spinWheel.disabled = false;
         updatePlayerUI();
-    }, duration * 1000);
-}
-
-function weightedPick(items) {
-    const total = items.reduce((sum, item) => sum + item.weight, 0);
-    let roll = Math.random() * total;
-    for (const item of items) {
-        roll -= item.weight;
-        if (roll <= 0) return item;
-    }
-    return items[items.length - 1];
+    }, normalizedDuration * 1000);
 }
 
 function launchConfetti() {

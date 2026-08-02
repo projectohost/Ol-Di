@@ -470,6 +470,15 @@ body.modal-open {
     box-shadow: 0 0 0 4px rgba(255, 207, 77, .35);
 }
 
+.wheel-result {
+    margin-top: 8px;
+    text-align: center;
+    color: #cfe6ff;
+    font-size: 14px;
+    font-weight: 700;
+    min-height: 22px;
+}
+
 .mini-wheel {
     width: 150px;
     height: 150px;
