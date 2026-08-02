@@ -692,15 +692,15 @@ function spinWheel() {
     const landingIndex = Math.floor(Math.random() * sectors);
     const reward = [
         { type: "money", value: 100 },
-        { type: "xp", value: 30 },
+        { type: "lose", value: 20 },
         { type: "money", value: 250 },
         { type: "lose", value: 20 },
         { type: "money", value: 500 },
         { type: "xp", value: 60 }
     ][landingIndex];
-    const randomTurns = 5 + Math.floor(Math.random() * 5);
+    const randomTurns = 8 + Math.floor(Math.random() * 6);
     const finalRotation = 360 * randomTurns + (360 - landingIndex * sectorAngle) % 360;
-    const duration = 2.4 + Math.random() * 1.6;
+    const duration = 3.2 + Math.random() * 2.0;
     const speedMultiplier = 0.15 + Math.random() * 0.1;
     const normalizedDuration = Math.max(2.8, duration + speedMultiplier);
 

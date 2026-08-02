@@ -434,8 +434,8 @@ body.modal-open {
 
 .wheel-wrap {
     position: relative;
-    width: 190px;
-    height: 190px;
+    width: 288px;
+    height: 288px;
     margin: 22px auto 16px;
     padding: 8px;
     display: grid;
@@ -444,14 +444,14 @@ body.modal-open {
 
 .wheel-pointer {
     position: absolute;
-    top: -8px;
+    top: 28px;
     left: 50%;
     transform: translateX(-50%);
     width: 0;
     height: 0;
-    border-left: 16px solid transparent;
-    border-right: 16px solid transparent;
-    border-top: 34px solid rgba(255, 207, 77, .95);
+    border-left: 11px solid transparent;
+    border-right: 11px solid transparent;
+    border-top: 24px solid rgba(255, 207, 77, .95);
     z-index: 6;
     filter: drop-shadow(0 0 0 transparent);
     pointer-events: none
@@ -460,11 +460,11 @@ body.modal-open {
 .wheel-pointer::before {
     content: "";
     position: absolute;
-    top: -18px;
+    top: -12px;
     left: 50%;
     transform: translateX(-50%);
-    width: 26px;
-    height: 26px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: radial-gradient(circle, #fff3b0 0%, #ffcf4d 60%, #a96f00 100%);
     border: 3px solid #7a4b00;
@@ -489,8 +489,8 @@ body.modal-open {
 }
 
 .mini-wheel {
-    width: 100px;
-    height: 100px;
+    width: 180px;
+    height: 180px;
     border-radius: 50%;
     position: relative;
     border: 8px solid #152a42;
