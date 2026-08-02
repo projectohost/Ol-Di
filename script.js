@@ -122,6 +122,7 @@ const state = {
     passiveRate: readNumber("passiveRate", 1),
     passiveLevel: readNumber("passiveLevel", 0),
     freeWheelSpins: readNumber("freeWheelSpins", 0),
+    wheelPatternIndex: 0,
     lang: localStorage.getItem("lang") || "uk",
     timeMultiplier: clampTimeMultiplier(readNumber("timeMultiplier", CONFIG.baseTimeMultiplier)),
     virtualAnchorMinutes: readNumber("virtualMinutes", 18 * 60),
@@ -689,7 +690,9 @@ function spinWheel() {
 
     const sectors = 6;
     const sectorAngle = 360 / sectors;
-    const landingIndex = Math.floor(Math.random() * sectors);
+    const wheelPattern = [0, 2, 4, 1, 3, 5];
+    const landingIndex = wheelPattern[state.wheelPatternIndex];
+    state.wheelPatternIndex = (state.wheelPatternIndex + 1) % wheelPattern.length;
     const reward = [
         { type: "money", value: 100 },
         { type: "lose", value: 20 },
