@@ -480,6 +480,14 @@ body.modal-open {
     min-height: 22px;
 }
 
+.wheel-free-spins {
+    margin-top: 6px;
+    text-align: center;
+    color: var(--yellow);
+    font-size: 13px;
+    font-weight: 700;
+}
+
 .mini-wheel {
     width: 120px;
     height: 120px;

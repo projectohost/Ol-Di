@@ -44,6 +44,7 @@ const elements = {
     spinWheel: $("#spinWheel"),
     miniWheel: $("#miniWheel"),
     wheelResult: $("#wheelResult"),
+    wheelFreeSpins: $("#wheelFreeSpins"),
     gameClock: $("#gameClock"),
     gameDay: $("#gameDay"),
     nextEventCountdown: $("#nextEventCountdown"),
@@ -82,7 +83,7 @@ const translations = {
         payout: "Виплата", noBet: "Ставку не зроблено", eventClosed: "Прийом ставок завершено", alreadyBet: "На цю подію вже є ставка",
         invalidAmount: "Введіть коректну суму", newEvent: "Додано новий спортивний захід", clockSaved: "Ігровий час змінено",
         wheelSpinning: "Колесо обертається…", wheelMoney: "+{amount} ₴", wheelXp: "+{amount} XP", wheelLose: "−{amount} ₴",
-        wheelResult: "Випало: {result}",
+        wheelResult: "Випало: {result}", freeWheelSpins: "Безкоштовних круток: {count}",
         football: "Футбол", basketball: "Баскетбол", formula: "Формула 1", tennis: "Теніс", hockey: "Хокей", boxing: "Бокс", volleyball: "Волейбол",
         resultTeam: "Перемога: {team}", resultDraw: "Нічия — м'яч пройшов повз ворота",
         winMessage: "Ви вгадали результат", loseMessage: "Результат не збігся з вашою ставкою",
@@ -105,7 +106,7 @@ const translations = {
         payout: "Payout", noBet: "No bet placed", eventClosed: "Betting is closed", alreadyBet: "A bet already exists for this event",
         invalidAmount: "Enter a valid amount", newEvent: "A new sports event was added", clockSaved: "Game time changed",
         wheelSpinning: "Wheel is spinning…", wheelMoney: "+{amount} ₴", wheelXp: "+{amount} XP", wheelLose: "−{amount} ₴",
-        wheelResult: "Result: {result}",
+        wheelResult: "Result: {result}", freeWheelSpins: "Free spins: {count}",
         football: "Football", basketball: "Basketball", formula: "Formula 1", tennis: "Tennis", hockey: "Hockey", boxing: "Boxing", volleyball: "Volleyball",
         resultTeam: "Winner: {team}", resultDraw: "Draw — the ball missed both goals",
         winMessage: "You predicted the result", loseMessage: "The result did not match your bet",
@@ -120,6 +121,7 @@ const state = {
     needXP: readNumber("needXP", 100),
     passiveRate: readNumber("passiveRate", 1),
     passiveLevel: readNumber("passiveLevel", 0),
+    freeWheelSpins: readNumber("freeWheelSpins", 0),
     lang: localStorage.getItem("lang") || "uk",
     timeMultiplier: clampTimeMultiplier(readNumber("timeMultiplier", CONFIG.baseTimeMultiplier)),
     virtualAnchorMinutes: readNumber("virtualMinutes", 18 * 60),
@@ -130,6 +132,10 @@ const state = {
     pendingBet: null,
     lastPassiveTick: performance.now()
 };
+
+if (state.freeWheelSpins === 0 && state.level > 0) {
+    state.freeWheelSpins = state.level * 10;
+}
 
 const eventPools = {
     football: [
@@ -217,6 +223,7 @@ function saveGame() {
     localStorage.setItem("needXP", String(state.needXP));
     localStorage.setItem("passiveRate", String(state.passiveRate));
     localStorage.setItem("passiveLevel", String(state.passiveLevel));
+    localStorage.setItem("freeWheelSpins", String(state.freeWheelSpins));
     localStorage.setItem("lang", state.lang);
     localStorage.setItem("timeMultiplier", String(state.timeMultiplier));
     localStorage.setItem("virtualMinutes", String(getVirtualMinutes()));
@@ -265,11 +272,18 @@ function updateClock() {
     processEvents(nowVirtual);
 }
 
+function updateWheelUI() {
+    if (elements.wheelFreeSpins) {
+        elements.wheelFreeSpins.textContent = t("freeWheelSpins", { count: state.freeWheelSpins });
+    }
+}
+
 function updatePlayerUI() {
     elements.money.textContent = `💰 ${formatMoney(state.money)} ₴`;
     elements.level.textContent = `⭐ ${t("level")} ${state.level}`;
     elements.xpBar.style.width = `${Math.min(100, (state.xp / state.needXP) * 100)}%`;
     elements.openEventsCount.textContent = String([...state.events.values()].filter(event => event.status !== "settled").length);
+    updateWheelUI();
     saveGame();
 }
 
@@ -279,6 +293,7 @@ function addXP(amount) {
         state.xp -= state.needXP;
         state.level += 1;
         state.needXP += 50;
+        state.freeWheelSpins += 10;
     }
 }
 
@@ -657,12 +672,18 @@ function setLanguage(lang) {
 }
 
 function spinWheel() {
-    if (state.money < CONFIG.wheelCost) {
+    const hasFreeSpin = state.freeWheelSpins > 0;
+    if (!hasFreeSpin && state.money < CONFIG.wheelCost) {
         toast(t("notEnough"), "lose");
         return;
     }
 
-    state.money = roundMoney(state.money - CONFIG.wheelCost);
+    if (hasFreeSpin) {
+        state.freeWheelSpins -= 1;
+    } else {
+        state.money = roundMoney(state.money - CONFIG.wheelCost);
+    }
+
     updatePlayerUI();
     elements.spinWheel.disabled = true;
 
